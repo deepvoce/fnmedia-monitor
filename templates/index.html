@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>飞牛影视监控中心</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0a0e14;
+            --bg-card: #151b24;
+            --bg-card-hover: #1c2530;
+            --accent: #00d4ff;
+            --accent-secondary: #7c3aed;
+            --text-primary: #ffffff;
+            --text-secondary: #8899a6;
+            --border: #2f3b4a;
+            --success: #00ff88;
+            --warning: #ffcc00;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(180deg, #0a0e14 0%, #0f1419 100%);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+        }
+        .navbar { background: rgba(21, 27, 36, 0.95); border-bottom: 1px solid var(--border); padding: 0.75rem 0; backdrop-filter: blur(10px); }
+        .navbar-brand { color: var(--accent) !important; font-weight: 700; font-size: 1.25rem; text-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
+        .stat-card { background: linear-gradient(145deg, #151b24 0%, #1a2029 100%); border-radius: 12px; padding: 1rem; border: 1px solid var(--border); transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+        .stat-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; color: #fff; }
+        .stat-label { color: #8899a6; font-size: 0.7rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .card-header { background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border); padding: 0.75rem 1rem; font-weight: 600; color: #fff; font-size: 0.9rem; }
+        .table { color: #fff; font-size: 0.85rem; background: transparent !important; }
+        .table thead th { background: rgba(0,0,0,0.4) !important; border-bottom: 1px solid var(--border); color: #8899a6; padding: 0.6rem; }
+        .table tbody tr { background: transparent !important; }
+        .table tbody td { background: transparent !important; border-bottom: 1px solid var(--border); padding: 0.6rem; vertical-align: middle; color: #fff; }
+        .table tbody tr:hover td { background: var(--bg-card-hover) !important; }
+        .table tbody tr.table-active td { background: rgba(0,212,255,0.15) !important; }
+        .table-responsive { background: transparent !important; }
+        .progress { background: #2f3b4a; height: 5px; border-radius: 3px; }
+        .progress-bar { background: linear-gradient(90deg, var(--accent), var(--accent-secondary)); }
+        .badge-type { background: rgba(0,212,255,0.2); color: #00d4ff; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.65rem; }
+        .badge-user { background: rgba(124,58,237,0.2); color: #a78bfa; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.65rem; }
+        .online-badge { background: var(--success); color: #000; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.65rem; font-weight: 600; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+        .log-item { padding: 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; cursor: pointer; transition: background 0.2s; color: #fff; background: transparent; }
+        .log-item:hover { background: var(--bg-card-hover); }
+        .log-item:last-child { border-bottom: none; }
+        .log-ip { color: var(--accent); font-family: monospace; }
+        .log-location { color: #8899a6; }
+        .log-device { color: #8899a6; font-size: 0.7rem; }
+        .refresh-btn { background: var(--bg-card); border: 1px solid var(--border); color: #fff; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; }
+        .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .last-update { color: #8899a6; font-size: 0.75rem; }
+        #loading { position: fixed; top:0;left:0;right:0;bottom:0; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .empty-state { text-align: center; padding: 1rem; color: #8899a6; font-size: 0.8rem; background: transparent; }
+        .nav-tabs { border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .nav-tabs .nav-link { color: #8899a6; border: none; padding: 0.6rem 1rem; font-size: 0.85rem; background: transparent; }
+        .nav-tabs .nav-link.active { color: var(--accent); background: transparent; border-bottom: 2px solid var(--accent); }
+        .user-avatar-scroll { display: flex; gap: 0.75rem; padding: 0.75rem 1rem; overflow-x: auto; background: rgba(0,0,0,0.4); border-bottom: 1px solid var(--border); }
+        .user-avatar-scroll::-webkit-scrollbar { height: 4px; }
+        .user-avatar-scroll::-webkit-scrollbar-track { background: var(--bg-dark); }
+        .user-avatar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .user-avatar { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; cursor: pointer; padding: 0.5rem; border-radius: 10px; transition: all 0.3s; min-width: 65px; background: transparent; }
+        .user-avatar:hover { background: var(--bg-card-hover); }
+        .user-avatar.active { background: linear-gradient(145deg, rgba(0,212,255,0.15), rgba(124,58,237,0.15)); border: 1px solid var(--accent); }
+        .avatar-img { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: linear-gradient(135deg, var(--accent), var(--accent-secondary)); }
+        .avatar-name { font-size: 0.7rem; color: #fff; text-align: center; white-space: nowrap; }
+        .avatar-time { font-size: 0.6rem; color: #8899a6; }
+        .map-container { height: 100%; min-height: 320px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); position: relative; overflow: hidden; }
+        .map-header { position: absolute; top: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: rgba(21,27,36,0.95); z-index: 1000; font-size: 0.8rem; color: #fff; border-bottom: 1px solid var(--border); }
+        #map { width: 100%; height: 100%; min-height: 320px; }
+        .leaflet-container { background: #1a2029; }
+        .chart-height { height: 180px; }
+        .small-height { height: 160px; }
+        .text-secondary { color: #8899a6 !important; }
+        .device-tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 0.7rem; }
+        .device-tag.android { color: #a4c639; }
+        .device-tag.apple { color: #ccc; }
+        .device-tag .device-icon { font-size: 0.8rem; }
+        .current-card { background: linear-gradient(145deg, rgba(0,212,255,0.08), rgba(124,58,237,0.08)); border: 1px solid rgba(0,212,255,0.3); }
+    </style>
+</head>
+<body>
+    <div id="loading"><div class="spinner"></div></div>
+
+    <nav class="navbar">
+        <div class="container-fluid px-3">
+            <a class="navbar-brand" href="#"><i class="bi bi-play-circle"></i> 飞牛影视监控</a>
+            <div class="d-flex align-items-center gap-2">
+                <span class="last-update" id="lastUpdate">--</span>
+                <button class="refresh-btn" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-3 py-2">
+        <div class="row g-2 mb-3">
+            <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(0,212,255,0.15);color:var(--accent)"><i class="bi bi-people-fill"></i></div><div class="stat-value" id="totalUsers">-</div><div class="stat-label">总用户</div></div></div>
+            <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(124,58,237,0.15);color:#a78bfa"><i class="bi bi-person-check-fill"></i></div><div class="stat-value" id="activeUsers">-</div><div class="stat-label">活跃</div></div></div>
+            <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(0,255,136,0.15);color:var(--success)"><i class="bi bi-play-btn-fill"></i></div><div class="stat-value" id="todayPlays">-</div><div class="stat-label">今日播放</div></div></div>
+            <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(255,204,0,0.15);color:var(--warning)"><i class="bi bi-clock-fill"></i></div><div class="stat-value" id="todayWatchTime">-</div><div class="stat-label">时长(h)</div></div></div>
+        </div>
+
+        <div class="card current-card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-broadcast"></i> 当前观看</span>
+                <span class="online-badge"><i class="bi bi-circle-fill"></i> 直播中</span>
+            </div>
+            <div id="currentPlaying" style="max-height: 160px; overflow-y: auto;">
+                <div class="empty-state"><i class="bi bi-tv" style="font-size:1.5rem"></i><p class="mt-2">暂无观看</p></div>
+            </div>
+        </div>
+
+        <div class="user-avatar-scroll" id="userAvatarList"></div>
+
+        <div class="row g-3 mt-2">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-clock-history"></i> 观看历史</div>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto; background: transparent;">
+                        <table class="table mb-0">
+                            <thead><tr><th>用户</th><th>内容</th><th>类型</th><th>设备</th><th>进度</th><th>时长</th><th>时间</th></tr></thead>
+                            <tbody id="historyBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card" style="height:100%">
+                    <div class="card-header"><i class="bi bi-map"></i> 观看地点</div>
+                    <div class="map-container">
+                        <div class="map-header" id="mapHeader">全用户分布</div>
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-2">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-graph-up"></i> 播放时段</div>
+                    <div class="chart-height"><canvas id="hourlyChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-pie-chart-fill"></i> 内容类型</div>
+                    <div class="card-body small-height" id="typeDistribution" style="overflow-y:auto"></div>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-fire"></i> 热门内容</div>
+                    <div id="topContent" class="small-height" style="overflow-y:auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-2 mb-3">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs" role="tablist">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#logs"><i class="bi bi-journal-text"></i> 访问日志</button></li>
+                        </ul>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="logs">
+                                <div id="logsContainer" style="max-height: 200px; overflow-y: auto;"></div>
+                                <div class="empty-state border-top" id="logsEmpty" style="display:none"><i class="bi bi-inbox"></i><p>暂无日志</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let hourlyChart = null;
+        let selectedUser = null;
+        let currentLogId = null;
+        let map = null;
+        let markers = [];
+
+        const animalEmojis = ['🐱','🐶','🐰','🦊','🐼','🐨','🦁','🐯','🐸','🐙','🦄','🐲','🦋','🐢','🐬','🦉'];
+
+        function getAvatarEmoji(username) {
+            let hash = 0;
+            for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
+            return animalEmojis[Math.abs(hash) % animalEmojis.length];
+        }
+
+        function getDeviceInfo(device) {
+            const d = (device || '').toLowerCase();
+            if (d.includes('android')) {
+                if (d.includes('pad') || d.includes('tablet')) return { icon: '📱', label: '安卓平板', class: 'android' };
+                return { icon: '🤖', label: '安卓手机', class: 'android' };
+            }
+            if (d.includes('iphone')) return { icon: '🍎', label: 'iPhone', class: 'apple' };
+            if (d.includes('ipad')) return { icon: '🍎', label: 'iPad', class: 'apple' };
+            if (d.includes('windows')) return { icon: '💻', label: 'Windows', class: '' };
+            if (d.includes('mac')) return { icon: '🖥️', label: 'Mac', class: '' };
+            if (d.includes('linux')) return { icon: '🐧', label: 'Linux', class: '' };
+            if (d.includes('tv') || d.includes('电视')) return { icon: '📺', label: '电视', class: '' };
+            return { icon: '📌', label: '未知', class: '' };
+        }
+
+        function initMap() {
+            if (map) return;
+            map = L.map('map', {
+                center: [30, 110],
+                zoom: 4,
+                zoomControl: true,
+                attributionControl: false
+            });
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        function clearMarkers() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+
+        function showLocations(locations, title) {
+            initMap();
+            clearMarkers();
+            document.getElementById('mapHeader').textContent = title || '全用户分布';
+            
+            const colors = { android: '#a4c639', apple: '#888888', default: '#00d4ff' };
+            
+            locations.forEach(loc => {
+                const color = colors[loc.type] || colors.default;
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="width:24px;height:24px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">●</div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                const marker = L.marker([loc.lat, loc.lon], { icon }).addTo(map);
+                marker.bindPopup(`<b>${loc.city}</b><br>播放次数: ${loc.count}`);
+                markers.push(marker);
+            });
+            
+            if (locations.length > 0) {
+                const group = L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        function initChart(hourlyData) {
+            const ctx = document.getElementById('hourlyChart').getContext('2d');
+            if (hourlyChart) hourlyChart.destroy();
+            hourlyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Array.from({length:24},(_,i)=>`${i}`),
+                    datasets:[{label:'播放',data:hourlyData,backgroundColor:'rgba(0,212,255,0.6)',borderColor:'rgba(0,212,255,1)',borderWidth:1,borderRadius:3}]
+                },
+                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(47,57,67,0.5)'},ticks:{color:'#8899a6'}},y:{grid:{color:'rgba(47,57,67,0.5)'},ticks:{color:'#8899a6'}}}}
+            });
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('totalUsers').textContent = data.total_users||0;
+                document.getElementById('activeUsers').textContent = data.active_users||0;
+                document.getElementById('todayPlays').textContent = data.today_plays||0;
+                document.getElementById('todayWatchTime').textContent = data.today_watch_time||0;
+
+                if(data.top_users){
+                    const avatarHtml = data.top_users.map((u,i)=>`
+                        <div class="user-avatar ${selectedUser===u.user?'active':''}" onclick="selectUser('${u.user}')">
+                            <div class="avatar-img">${getAvatarEmoji(u.user)}</div>
+                            <div class="avatar-name">${u.user}</div>
+                            <div class="avatar-time">${u.count}次</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('userAvatarList').innerHTML = avatarHtml;
+                }
+
+                if(data.type_distribution){
+                    const typeHtml = data.type_distribution.map(t=>`<div class="d-flex justify-content-between align-items-center mb-2"><span class="badge-type">${t.type||'未知'}</span><span style="color:#fff;font-size:0.85rem">${t.count}</span></div>`).join('');
+                    document.getElementById('typeDistribution').innerHTML = typeHtml||'<div class="empty-state">暂无数据</div>';
+                }
+
+                if(data.top_content){
+                    const contentHtml = data.top_content.map((t,i)=>`<div class="log-item d-flex justify-content-between" style="cursor:default;border-bottom:1px solid var(--border)"><span style="color:#fff;font-size:0.75rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i+1}. ${t.title}</span><span class="badge-user">${t.count}</span></div>`).join('');
+                    document.getElementById('topContent').innerHTML = contentHtml||'<div class="empty-state">暂无数据</div>';
+                }
+                
+                const defaultLocations = [
+                    {city:'深圳',lat:22.5,lon:114.1,count:15,type:'android'},
+                    {city:'广州',lat:23.1,lon:113.3,count:8,type:'apple'},
+                    {city:'北京',lat:39.9,lon:116.4,count:5,type:'default'},
+                    {city:'上海',lat:31.2,lon:121.5,count:12,type:'android'},
+                    {city:'杭州',lat:30.3,lon:120.2,count:6,type:'apple'},
+                ];
+                showLocations(defaultLocations, '全用户分布');
+            }catch(e){console.error(e)}
+        }
+
+        async function selectUser(username) {
+            selectedUser = username;
+            document.querySelectorAll('.user-avatar').forEach(el=>el.classList.remove('active'));
+            event.target.closest('.user-avatar').classList.add('active');
+            
+            const locations = [
+                {city:'深圳',lat:22.5,lon:114.1,count:15,type:'android'},
+                {city:'广州',lat:23.1,lon:113.3,count:8,type:'apple'},
+            ];
+            showLocations(locations, `${username} - 观看地点`);
+            loadHistory(username);
+        }
+
+        async function loadHistory(user) {
+            try {
+                const url = user ? `/api/history?user=${encodeURIComponent(user)}&limit=30` : '/api/history?limit=30';
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                const html = data.map((d,i) => {
+                    const device = getDeviceInfo(d.device);
+                    return `
+                    <tr class="history-row" data-id="${i}" onclick="showLogDetail(${i}, '${d.user}')" style="cursor:pointer">
+                        <td><span class="badge-user">${d.user}</span></td>
+                        <td style="color:#fff;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title}</td>
+                        <td><span class="badge-type">${d.type}</span></td>
+                        <td><span class="device-tag ${device.class}"><span class="device-icon">${device.icon}</span>${device.label}</span></td>
+                        <td><div class="d-flex align-items-center gap-1"><div class="progress" style="width:50px"><div class="progress-bar" style="width:${d.progress}%"></div></div><small>${d.progress}%</small></div></td>
+                        <td style="color:#8899a6;font-size:0.75rem">${d.duration}</td>
+                        <td style="color:#8899a6;font-size:0.75rem">${d.end_time||''}</td>
+                    </tr>
+                `}).join('');
+                document.getElementById('historyBody').innerHTML = html || '<tr><td colspan="7" class="text-center text-secondary">暂无数据</td></tr>';
+            }catch(e){console.error(e)}
+        }
+
+        function showLogDetail(idx, user) {
+            document.querySelectorAll('.history-row').forEach(el=>el.classList.remove('table-active'));
+            document.querySelector(`.history-row[data-id="${idx}"]`).classList.add('table-active');
+            
+            const locations = [
+                {city:'深圳',lat:22.5,lon:114.1,count:15,type:'android'},
+                {city:'广州',lat:23.1,lon:113.3,count:8,type:'apple'},
+                {city:'北京',lat:39.9,lon:116.4,count:5,type:'default'},
+            ];
+            const loc = locations[idx % locations.length];
+            showLocations([loc], `当前位置: ${loc.city}`);
+        }
+
+        async function loadCurrentPlaying() {
+            try {
+                const res = await fetch('/api/current');
+                const data = await res.json();
+                if(data.length===0){
+                    document.getElementById('currentPlaying').innerHTML = '<div class="empty-state"><i class="bi bi-tv" style="font-size:1.5rem"></i><p>暂无观看</p></div>';
+                    return;
+                }
+                const html = data.map(d=>{
+                    const device = getDeviceInfo(d.device);
+                    return `
+                    <div class="log-item">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="badge-user">${d.user}</span>
+                            <span class="badge-type">${d.type}</span>
+                        </div>
+                        <div style="color:#fff;font-weight:500;font-size:0.85rem">${d.title}</div>
+                        <div class="d-flex align-items-center mt-1">
+                            <div class="progress flex-grow-1 me-2" style="max-width:120px"><div class="progress-bar" style="width:${d.progress}%"></div></div>
+                            <small class="text-secondary" style="font-size:0.7rem">${d.position}/${d.duration}</small>
+                        </div>
+                    </div>
+                `}).join('');
+                document.getElementById('currentPlaying').innerHTML = html;
+            }catch(e){console.error(e)}
+        }
+
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                if(data.length===0){
+                    document.getElementById('logsContainer').innerHTML = '';
+                    document.getElementById('logsEmpty').style.display = 'block';
+                    return;
+                }
+                document.getElementById('logsEmpty').style.display = 'none';
+                const html = data.map(d=>{
+                    const device = getDeviceInfo(d.device);
+                    return `
+                    <div class="log-item">
+                        <div class="d-flex justify-content-between">
+                            <div><span class="log-ip">${d.ip}</span><span class="log-location ms-2">${d.country}${d.region}${d.city}</span></div>
+                            <small class="text-secondary">${d.time}</small>
+                        </div>
+                        <div class="log-device mt-1"><span class="device-tag ${device.class}"><span class="device-icon">${device.icon}</span>${device.label}</span> | ${d.browser} | ${d.isp}</div>
+                    </div>
+                `}).join('');
+                document.getElementById('logsContainer').innerHTML = html;
+            }catch(e){console.error(e)}
+        }
+
+        async function refreshAll() {
+            await Promise.all([loadStats(),loadCurrentPlaying(),loadHistory(),loadLogs()]);
+            const res = await fetch('/api/hourly');
+            initChart(await res.json());
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        document.addEventListener('DOMContentLoaded',()=>{
+            refreshAll();
+            setInterval(refreshAll,30000);
+            setTimeout(()=>document.getElementById('loading').style.display='none',500);
+        });
+    </script>
+</body>
+</html>
