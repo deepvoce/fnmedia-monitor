@@ -129,7 +129,7 @@
                     <div class="card-header"><i class="bi bi-clock-history"></i> 观看历史</div>
                     <div class="table-responsive" style="max-height: 300px; overflow-y: auto; background: transparent;">
                         <table class="table mb-0">
-                            <thead><tr><th>用户</th><th>内容</th><th>类型</th><th>设备</th><th>进度</th><th>时长</th><th>时间</th></tr></thead>
+                            <thead><tr><th>用户</th><th>内容</th><th>类型</th><th>评分</th><th>设备</th><th>进度</th><th>时长</th><th>大小</th><th>时间</th></tr></thead>
                             <tbody id="historyBody"></tbody>
                         </table>
                     </div>
@@ -174,6 +174,8 @@
                     <div class="card-header">
                         <ul class="nav nav-tabs" role="tablist">
                             <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#logs"><i class="bi bi-journal-text"></i> 访问日志</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#favorites"><i class="bi bi-heart-fill"></i> 收藏记录</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#downloads"><i class="bi bi-download"></i> 下载记录</button></li>
                         </ul>
                     </div>
                     <div class="card-body p-0">
@@ -181,6 +183,14 @@
                             <div class="tab-pane fade show active" id="logs">
                                 <div id="logsContainer" style="max-height: 200px; overflow-y: auto;"></div>
                                 <div class="empty-state border-top" id="logsEmpty" style="display:none"><i class="bi bi-inbox"></i><p>暂无日志</p></div>
+                            </div>
+                            <div class="tab-pane fade" id="favorites">
+                                <div id="favoritesContainer" style="max-height: 200px; overflow-y: auto;"></div>
+                                <div class="empty-state border-top" id="favoritesEmpty" style="display:none"><i class="bi bi-inbox"></i><p>暂无收藏</p></div>
+                            </div>
+                            <div class="tab-pane fade" id="downloads">
+                                <div id="downloadsContainer" style="max-height: 200px; overflow-y: auto;"></div>
+                                <div class="empty-state border-top" id="downloadsEmpty" style="display:none"><i class="bi bi-inbox"></i><p>暂无下载</p></div>
                             </div>
                         </div>
                     </div>
@@ -308,14 +318,13 @@
                     document.getElementById('topContent').innerHTML = contentHtml||'<div class="empty-state">暂无数据</div>';
                 }
                 
-                const defaultLocations = [
-                    {city:'深圳',lat:22.5,lon:114.1,count:15,type:'android'},
-                    {city:'广州',lat:23.1,lon:113.3,count:8,type:'apple'},
-                    {city:'北京',lat:39.9,lon:116.4,count:5,type:'default'},
-                    {city:'上海',lat:31.2,lon:121.5,count:12,type:'android'},
-                    {city:'杭州',lat:30.3,lon:120.2,count:6,type:'apple'},
-                ];
-                showLocations(defaultLocations, '全用户分布');
+                const locRes = await fetch('/api/locations');
+                const locData = await locRes.json();
+                if (Array.isArray(locData) && locData.length > 0) {
+                    showLocations(locData, '全用户分布');
+                } else {
+                    showLocations([], '未启用访问日志');
+                }
             }catch(e){console.error(e)}
         }
 
@@ -324,11 +333,13 @@
             document.querySelectorAll('.user-avatar').forEach(el=>el.classList.remove('active'));
             event.target.closest('.user-avatar').classList.add('active');
             
-            const locations = [
-                {city:'深圳',lat:22.5,lon:114.1,count:15,type:'android'},
-                {city:'广州',lat:23.1,lon:113.3,count:8,type:'apple'},
-            ];
-            showLocations(locations, `${username} - 观看地点`);
+            const locRes = await fetch('/api/locations');
+            const locData = await locRes.json();
+            if (Array.isArray(locData) && locData.length > 0) {
+                showLocations(locData, `${username} - 观看地点`);
+            } else {
+                showLocations([], '未启用访问日志');
+            }
             loadHistory(username);
         }
 
@@ -343,15 +354,17 @@
                     return `
                     <tr class="history-row" data-id="${i}" onclick="showLogDetail(${i}, '${d.user}')" style="cursor:pointer">
                         <td><span class="badge-user">${d.user}</span></td>
-                        <td style="color:#fff;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title}</td>
+                        <td style="color:#fff;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.overview||''}">${d.title}</td>
                         <td><span class="badge-type">${d.type}</span></td>
+                        <td>${d.rating ? '⭐'+d.rating.toFixed(1) : '-'}</td>
                         <td><span class="device-tag ${device.class}"><span class="device-icon">${device.icon}</span>${device.label}</span></td>
                         <td><div class="d-flex align-items-center gap-1"><div class="progress" style="width:50px"><div class="progress-bar" style="width:${d.progress}%"></div></div><small>${d.progress}%</small></div></td>
                         <td style="color:#8899a6;font-size:0.75rem">${d.duration}</td>
+                        <td style="color:#8899a6;font-size:0.75rem">${d.size}</td>
                         <td style="color:#8899a6;font-size:0.75rem">${d.end_time||''}</td>
                     </tr>
                 `}).join('');
-                document.getElementById('historyBody').innerHTML = html || '<tr><td colspan="7" class="text-center text-secondary">暂无数据</td></tr>';
+                document.getElementById('historyBody').innerHTML = html || '<tr><td colspan="9" class="text-center text-secondary">暂无数据</td></tr>';
             }catch(e){console.error(e)}
         }
 
@@ -359,13 +372,17 @@
             document.querySelectorAll('.history-row').forEach(el=>el.classList.remove('table-active'));
             document.querySelector(`.history-row[data-id="${idx}"]`).classList.add('table-active');
             
-            const locations = [
-                {city:'深圳',lat:22.5,lon:114.1,count:15,type:'android'},
-                {city:'广州',lat:23.1,lon:113.3,count:8,type:'apple'},
-                {city:'北京',lat:39.9,lon:116.4,count:5,type:'default'},
-            ];
-            const loc = locations[idx % locations.length];
-            showLocations([loc], `当前位置: ${loc.city}`);
+            // Use aggregated locations for now; per-item location requires mapping user->IP.
+            fetch('/api/locations')
+                .then(r=>r.json())
+                .then(locData=>{
+                    if (Array.isArray(locData) && locData.length > 0) {
+                        showLocations(locData, `当前位置`);
+                    } else {
+                        showLocations([], '未启用访问日志');
+                    }
+                })
+                .catch(()=>{});
         }
 
         async function loadCurrentPlaying() {
@@ -402,6 +419,7 @@
                 if(data.length===0){
                     document.getElementById('logsContainer').innerHTML = '';
                     document.getElementById('logsEmpty').style.display = 'block';
+                    document.getElementById('logsEmpty').innerHTML = '<i class="bi bi-inbox"></i><p>未启用访问日志</p>';
                     return;
                 }
                 document.getElementById('logsEmpty').style.display = 'none';
@@ -420,8 +438,64 @@
             }catch(e){console.error(e)}
         }
 
+        async function loadFavorites() {
+            try {
+                const res = await fetch('/api/favorites');
+                const data = await res.json();
+                if(data.length===0){
+                    document.getElementById('favoritesContainer').innerHTML = '';
+                    document.getElementById('favoritesEmpty').style.display = 'block';
+                    return;
+                }
+                document.getElementById('favoritesEmpty').style.display = 'none';
+                const html = data.map(d=>{
+                    return `
+                    <div class="log-item">
+                        <div class="d-flex justify-content-between">
+                            <span><span class="badge-user">${d.user}</span> <span style="color:#fff">${d.title}</span></span>
+                            <span class="badge-type">${d.type}</span>
+                        </div>
+                        <div class="log-device mt-1">
+                            ${d.rating ? '<span class="me-2">⭐' + d.rating.toFixed(1) + '</span>' : ''}
+                            <small class="text-secondary">收藏于 ${d.add_time||''}</small>
+                        </div>
+                    </div>
+                `}).join('');
+                document.getElementById('favoritesContainer').innerHTML = html;
+            }catch(e){console.error(e)}
+        }
+
+        async function loadDownloads() {
+            try {
+                const res = await fetch('/api/downloads');
+                const data = await res.json();
+                if(data.length===0){
+                    document.getElementById('downloadsContainer').innerHTML = '';
+                    document.getElementById('downloadsEmpty').style.display = 'block';
+                    return;
+                }
+                document.getElementById('downloadsEmpty').style.display = 'none';
+                const statusColors = { '已完成': 'var(--success)', '下载中': 'var(--accent)', '等待中': 'var(--warning)', '失败': '#ff4444' };
+                const html = data.map(d=>{
+                    const color = statusColors[d.status] || '#8899a6';
+                    return `
+                    <div class="log-item">
+                        <div class="d-flex justify-content-between">
+                            <span><span class="badge-user">${d.user}</span> <span style="color:#fff;font-size:0.75rem">${d.media_file}</span></span>
+                            <span style="color:${color};font-size:0.7rem">${d.status}</span>
+                        </div>
+                        <div class="log-device mt-1">
+                            <span class="me-2">${d.resolution}</span>
+                            <small class="text-secondary">${d.create_time||''}</small>
+                        </div>
+                    </div>
+                `}).join('');
+                document.getElementById('downloadsContainer').innerHTML = html;
+            }catch(e){console.error(e)}
+        }
+
         async function refreshAll() {
-            await Promise.all([loadStats(),loadCurrentPlaying(),loadHistory(),loadLogs()]);
+            await Promise.all([loadStats(),loadCurrentPlaying(),loadHistory(),loadLogs(),loadFavorites(),loadDownloads()]);
             const res = await fetch('/api/hourly');
             initChart(await res.json());
             document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();

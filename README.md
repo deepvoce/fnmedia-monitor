@@ -15,9 +15,9 @@
 
 ### 1. 准备数据库
 
-飞牛影视数据库位置：
+飞牛影视数据库位置（trim.media）：
 ```
-/fnnas/media/fnmedia.db
+/usr/local/apps/@appdata/trim.media/database/trimmedia.db
 ```
 
 ### 2. 上传项目
@@ -28,7 +28,7 @@
 
 ```bash
 mkdir -p /mnt/user0/fnmedia-monitor/{database,logs}
-cp /fnnas/media/fnmedia.db /mnt/user0/fnmedia-monitor/database/
+cp /usr/local/apps/@appdata/trim.media/database/trimmedia.db /mnt/user0/fnmedia-monitor/database/
 ```
 
 ### 4. 启动服务
@@ -56,6 +56,7 @@ docker-compose up -d
 |------|--------|------|
 | FNMEDIA_DB_PATH | /app/database/fnmedia.db | 数据库路径 |
 | LOG_PATH | /app/logs | 日志目录 |
+| LOG_ENABLED | 0 | 是否启用访问日志（Lucky/VPS） |
 | PORT | 5000 | 端口 |
 | IPINFO_TOKEN | - | ipinfo.io Token（可选，用于更精准的IP查询） |
 

@@ -6,17 +6,15 @@ services:
     container_name: fnmedia-monitor
     restart: unless-stopped
     ports:
-      - "5000:5000"
-    volumes:
-      - ./database:/app/database:ro
-      - ./logs:/app/logs:ro
+      - "5500:5000"
     environment:
-      - FNMEDIA_DB_PATH=/app/database/fnmedia.db
+      - FNMEDIA_DB_PATH=/app/database/trimmedia.db
       - LOG_PATH=/app/logs
-      - PORT=5000
-      - IPINFO_TOKEN=
-    working_dir: /app
+      - TZ=Asia/Shanghai
+    volumes:
+      - /usr/local/apps/@appdata/trim.media/database:/app/database:ro
+      - /vol3/1000/docker/fnmedia-monitor:/app/code
     command: >
-      sh -c "pip install flask requests gunicorn && gunicorn -w 2 -b 0.0.0.0:5000 main:app"
+      sh -c "pip install -r /app/code/requirements.txt && gunicorn -w 2 -b 0.0.0.0:5000 --chdir /app/code main:app"
     mem_limit: 200m
     cpu_shares: 512
