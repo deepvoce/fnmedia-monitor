@@ -19,6 +19,7 @@
       --glass: rgba(255,255,255,0.55);
       --glass-border: rgba(255,255,255,0.75);
       --glass-highlight: rgba(255,255,255,0.75);
+      --bg-solid: #ffffff;
       --bg-bottom: linear-gradient(180deg, #cfe2ff 0%, #e7f1ff 50%, #ffffff 100%);
     }
     [data-theme="dark"] {
@@ -31,21 +32,24 @@
       --glass: rgba(28,30,36,0.8);
       --glass-border: rgba(255,255,255,0.28);
       --glass-highlight: rgba(255,255,255,0.26);
-  --bg-bottom: linear-gradient(180deg, #122a5c 0%, #0b1426 55%, #06090f 100%);
+      --bg-solid: #06090f;
+      --bg-bottom: linear-gradient(180deg, #122a5c 0%, #0b1426 55%, #06090f 100%);
     }
     * { box-sizing: border-box; }
-    html, body { height: 100%; background: var(--bg-bottom); }
+    html, body { height: 100%; }
     body {
       margin: 0;
       color: var(--ink);
       font-family: "Manrope", "Helvetica Neue", Helvetica, Arial, sans-serif;
       letter-spacing: -0.01em;
+      background: var(--bg-solid);
       min-height: 100dvh;
     }
-    .bg {
+    body::before {
+      content: "";
       position: fixed;
       inset: 0;
-      z-index: -2;
+      z-index: -1;
       pointer-events: none;
       background: var(--bg-bottom);
       background-repeat: no-repeat;
@@ -102,7 +106,7 @@
 
     .grid { display: grid; gap: 16px; }
     .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
 
     .card {
       background: linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0.18)), var(--glass);
@@ -113,6 +117,8 @@
       -webkit-backdrop-filter: blur(26px) saturate(175%);
       transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
     .card:hover {
       transform: translateY(-2px);
@@ -120,7 +126,7 @@
       box-shadow: 0 18px 36px rgba(0,0,0,0.2);
     }
     .card-head { padding: 16px 18px 0; font-weight: 600; font-size: 14px; }
-    .card-body { padding: 16px 18px 18px; }
+    .card-body { padding: 16px 18px 18px; flex: 1; }
 
     .stat { display: flex; flex-direction: column; gap: 6px; }
     .stat::before {
@@ -134,6 +140,27 @@
       display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px;
       font-size: 12px; background: rgba(255,255,255,0.25); color: var(--muted);
     }
+    .count-badge {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      color: #ffffff;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0) 45%),
+                  linear-gradient(135deg, #cfcfcf 0%, #9fa4ad 55%, #7d818a 100%);
+      box-shadow: inset 0 0 8px rgba(255,255,255,0.25);
+    }
+    [data-theme="dark"] .count-badge {
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.28), rgba(255,255,255,0) 45%),
+                  linear-gradient(135deg, #bfc3c9 0%, #8a9099 55%, #666b74 100%);
+      color: #ffffff;
+    }
+    [data-theme="dark"] .meta.time-strong { color: var(--ink); }
     .list { display: flex; flex-direction: column; gap: 10px; }
     .list-item {
       display: flex; align-items: center; justify-content: space-between;
@@ -149,6 +176,43 @@
     .table-lite { width: 100%; border-collapse: collapse; font-size: 13px; }
     .table-lite th, .table-lite td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.15); text-align: left; }
     .table-lite th { color: var(--muted); font-weight: 600; }
+    .title-ellipsis {
+      max-width: 110px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .user-ellipsis {
+      max-width: 80px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .time-cell { white-space: nowrap; }
+    .scroll-y {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .progress-cell { min-width: 140px; }
+    .progress-wrap { display: flex; align-items: center; gap: 8px; }
+    .progress-track {
+      width: 50%;
+      height: 6px;
+      background: rgba(255,255,255,0.22);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-track span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      min-width: 2px;
+    }
     .tag {
       padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
       background: color-mix(in oklab, var(--accent) 12%, transparent); color: var(--accent);
@@ -164,7 +228,6 @@
   </style>
 </head>
 <body>
-  <div class="bg"></div>
   <div class="app">
     <div class="topbar">
       <div class="brand">
@@ -205,11 +268,11 @@
     <div class="grid grid-2" style="margin-top:16px;">
       <div class="card">
         <div class="card-head">观看历史</div>
-        <div class="card-body" style="overflow:auto; max-height:380px;">
+        <div class="card-body scroll-y" id="historyBodyWrap">
           <table class="table-lite">
             <thead>
               <tr>
-                <th>用户</th><th>内容</th><th>类型</th><th>进度</th><th>时间</th>
+                <th>用户</th><th>内容</th><th>类型</th><th class="progress-cell">进度</th><th>时间</th>
               </tr>
             </thead>
             <tbody id="historyBody"></tbody>
@@ -218,7 +281,7 @@
       </div>
       <div class="card">
         <div class="card-head">热门内容</div>
-        <div class="card-body">
+        <div class="card-body" id="topContentWrap" style="display:flex; flex-direction:column;">
           <div id="topContent" class="list"></div>
           <div class="muted" id="topContentEmpty" style="display:none;">暂无数据</div>
         </div>
@@ -268,7 +331,7 @@
               <div>${i+1}. ${t.title}</div>
               <div class="meta">近7天播放</div>
             </div>
-            <span class="pill">${t.count}</span>
+            <span class="count-badge">${t.count}</span>
           </div>
         `).join('');
         document.getElementById('topContentEmpty').style.display = 'none';
@@ -302,14 +365,20 @@
       const data = await res.json();
       document.getElementById('historyBody').innerHTML = data.map(d=>`
         <tr>
-          <td>${d.user}</td>
-          <td>${d.title}</td>
+          <td><span class="user-ellipsis" title="${d.user}">${d.user}</span></td>
+          <td><span class="title-ellipsis" title="${d.title}">${d.title}</span></td>
           <td><span class="tag">${d.type || '未知'}</span></td>
-          <td>${d.progress || 0}%</td>
-          <td class="muted">${d.end_time || ''}</td>
+          <td class="progress-cell">
+            <div class="progress-wrap">
+              <div class="progress-track"><span style="width:${d.progress||0}%"></span></div>
+              <span class="muted">${d.progress || 0}%</span>
+            </div>
+          </td>
+          <td class="muted time-cell">${d.end_time || ''}</td>
         </tr>
       `).join('') || '<tr><td colspan="5" class="muted">暂无数据</td></tr>';
     }
+
 
     async function loadFavorites() {
       const res = await fetch('/api/favorites');
@@ -324,7 +393,7 @@
             <div>${d.title}</div>
             <div class="meta">${d.user} · ${d.type}</div>
           </div>
-          <div class="meta">${d.add_time || ''}</div>
+          <div class="meta time-strong">${d.add_time || ''}</div>
         </div>
       `).join('');
     }
@@ -351,7 +420,29 @@
       await Promise.all([loadStats(), loadCurrentPlaying(), loadHistory(), loadFavorites(), loadDownloads()]);
       const res = await fetch('/api/hourly');
       initChart(await res.json());
+      syncHistoryHeight();
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    }
+
+    function syncHistoryHeight() {
+      const topWrap = document.getElementById('topContentWrap');
+      const historyWrap = document.getElementById('historyBodyWrap');
+      const topList = document.getElementById('topContent');
+      if (!topWrap || !historyWrap) return;
+      let target = 0;
+      if (topList) {
+        const firstItem = topList.querySelector('.list-item');
+        if (firstItem) {
+          const itemHeight = firstItem.getBoundingClientRect().height;
+          const listStyle = window.getComputedStyle(topList);
+          const gap = parseFloat(listStyle.gap || '0');
+          target = itemHeight * 10 + gap * 9;
+        }
+      }
+      if (target <= 0) {
+        target = topWrap.getBoundingClientRect().height;
+      }
+      if (target > 0) historyWrap.style.maxHeight = `${Math.round(target)}px`;
     }
 
     function applyTheme(theme) {
@@ -371,6 +462,7 @@
       });
       refreshAll();
       setInterval(refreshAll, 30000);
+      window.addEventListener('resize', syncHistoryHeight);
     });
   </script>
 </body>
