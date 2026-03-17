@@ -12,6 +12,7 @@ services:
       - LOG_PATH=/app/logs
       - TZ=Asia/Shanghai
     volumes:
+      # 只读挂载数据库目录（避免容器内写入）
       - /usr/local/apps/@appdata/trim.media/database:/app/database:ro
       - /vol3/1000/docker/fnmedia-monitor:/app/code
     command: >
