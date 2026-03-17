@@ -1,7 +1,7 @@
 # 飞牛影视监控服务
 
-![浅色模式预览](assets/preview-light-v2.png)
-![深色模式预览](assets/preview-dark-v2.png)
+![浅色模式预览](assets/preview-light.jpeg)
+![深色模式预览](assets/preview-dark.jpeg)
 
 一个轻量级的飞牛影视观看监控面板，支持实时观看状态、历史记录、访问日志分析。
 
