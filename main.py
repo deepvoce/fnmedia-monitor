@@ -283,13 +283,14 @@ def get_current_playing():
                     display_title = f"{hierarchy[-1]['title']} - {display_title}"
             elif hierarchy and len(hierarchy) > 1:
                 display_title = f"{hierarchy[-1]['title']} - {row['title']}"
-            duration = row['media_duration'] or row['runtime'] or 0
+            duration = row['media_duration'] or ((row['runtime'] or 0) * 60)
             position = row['ts'] or row['watched'] or 0
+            position, duration = normalize_position_duration(position, duration)
             results.append({
                 "user": row['username'],
                 "title": display_title,
                 "type": row['type'],
-                "progress": round((position or 0) / duration * 100, 1) if duration > 0 else 0,
+                "progress": round(min(100.0, (position or 0) / duration * 100), 1) if duration > 0 else 0,
                 "position": format_duration(position or 0),
                 "duration": format_duration(duration),
                 "resolution": row['resolution'] or "",
@@ -360,14 +361,15 @@ def get_play_history(limit=100, user_filter=None):
                 display_title = f"{hierarchy[-1]['title']} - {display_title}"
         elif hierarchy and len(hierarchy) > 1:
             display_title = f"{hierarchy[-1]['title']} - {row['title']}"
-        duration = row['media_duration'] or row['runtime'] or 0
+        duration = row['media_duration'] or ((row['runtime'] or 0) * 60)
         position = row['ts'] or row['watched'] or 0
+        position, duration = normalize_position_duration(position, duration)
         results.append({
             "user": row['username'],
             "title": display_title,
             "type": row['type'],
             "category": "",
-            "progress": round((position or 0) / duration * 100, 1) if duration > 0 else 0,
+            "progress": round(min(100.0, (position or 0) / duration * 100), 1) if duration > 0 else 0,
             "position": format_duration(position or 0),
             "duration": format_duration(duration),
             "resolution": row['resolution'] or "",
@@ -483,6 +485,16 @@ def format_duration(seconds):
     if h > 0:
         return f"{h}:{m:02d}:{s:02d}"
     return f"{m}:{s:02d}"
+
+def normalize_position_duration(position, duration):
+    if not position or not duration:
+        return 0, duration or 0
+    pos = float(position)
+    dur = float(duration)
+    # If position looks like ms relative to seconds duration, scale down.
+    if dur > 0 and pos > dur * 10:
+        pos = pos / 1000.0
+    return pos, dur
 
 def format_timestamp(ts):
     if not ts:
