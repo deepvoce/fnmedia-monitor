@@ -27,11 +27,12 @@
 
 将整个 `fnmedia-monitor` 文件夹上传到NAS，例如放在 `/mnt/user0/fnmedia-monitor/`
 
-### 3. 创建目录并复制数据库
+### 3. 挂载数据库目录（只读）
 
-```bash
-mkdir -p /mnt/user0/fnmedia-monitor/{database,logs}
-cp /usr/local/apps/@appdata/trim.media/database/trimmedia.db /mnt/user0/fnmedia-monitor/database/
+使用宿主机数据库目录直接挂载到容器内（只读）：
+
+```
+/usr/local/apps/@appdata/trim.media/database:/app/database:ro
 ```
 
 ### 4. 启动服务
