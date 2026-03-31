@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc
 *.pyo
-nul
-mock_db.db
-*.db
+*.pyd
 .env
+*.db
+*.sqlite3
+tmp/
+*.log
+.DS_Store
+Thumbs.db
