@@ -11,6 +11,13 @@ import requests
 from flask import Flask, render_template, jsonify, request
 from config import Config
 
+
+# ========== 缓存层 ==========
+_log_cache = {"data": None, "time": 0, "lock": threading.Lock()}
+_locations_cache = {"data": None, "time": 0, "lock": threading.Lock()}
+_stats_cache = {"data": None, "time": 0, "lock": threading.Lock()}
+_cache_ttl = int(os.environ.get("CACHE_TTL", "30"))  # API响应缓存秒数
+
 app = Flask(__name__)
 config = Config()
 
@@ -129,7 +136,7 @@ def get_ip_info(ip):
     
     try:
         if config.IPINFO_TOKEN:
-            response = requests.get(f"https://ipinfo.io/{ip}/json?token={config.IPINFO_TOKEN}", timeout=3)
+            response = requests.get(f"https://ipinfo.io/{ip}/json?token={config.IPINFO_TOKEN}", timeout=2)
             if response.status_code == 200:
                 data = response.json()
                 return {
@@ -141,7 +148,7 @@ def get_ip_info(ip):
                     "lon": float(data.get("loc", "0,0").split(",")[1]) if data.get("loc") else None
                 }
         
-        response = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp,lat,lon", timeout=3)
+        response = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp,lat,lon", timeout=2)
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
@@ -205,6 +212,45 @@ def parse_log_time(time_str):
         except Exception:
             continue
     return time_str
+
+
+# ========== 批量层级查询（替代逐条递归） ==========
+def get_items_hierarchy_batch(conn, item_guids):
+    """一次性批量查询所有 item 的层级关系，大幅减少递归调用"""
+    if not item_guids:
+        return {}
+    
+    placeholders = ",".join(["?"] * len(item_guids))
+    all_rows = conn.execute(f"""
+        WITH RECURSIVE item_hierarchy(guid, title, original_title, parent_guid, level, root_guid) AS (
+            SELECT guid, title, original_title, parent_guid, 0 as level, guid as root_guid
+            FROM item
+            WHERE guid IN ({placeholders})
+            UNION ALL
+            SELECT i.guid, i.title, i.original_title, i.parent_guid, ih.level + 1, ih.root_guid
+            FROM item i
+            INNER JOIN item_hierarchy ih ON i.guid = ih.parent_guid
+            WHERE ih.level < 10 AND i.guid IS NOT NULL
+        )
+        SELECT root_guid, guid, title, original_title, parent_guid, level
+        FROM item_hierarchy
+        ORDER BY root_guid, level ASC
+    """, tuple(item_guids)).fetchall()
+    
+    result = {guid: [] for guid in item_guids}
+    current_guid = None
+    for row in all_rows:
+        if row["root_guid"] != current_guid:
+            current_guid = row["root_guid"]
+        result[current_guid].append({
+            "guid": row["guid"],
+            "title": row["title"],
+            "original_title": row["original_title"],
+            "parent_guid": row["parent_guid"],
+            "level": row["level"],
+        })
+    
+    return result
 
 def get_item_hierarchy(conn, item_guid, cache=None):
     if cache is None:
@@ -272,10 +318,17 @@ def get_current_playing():
             LIMIT 20
         """, (now_ms() - 300 * 1000,))
         
+        rows = cursor.fetchall()
+        if not rows:
+            return []
+        
+        # 批量获取层级关系（优化）
+        item_guids = [row["item_guid"] for row in rows]
+        hierarchy_map = get_items_hierarchy_batch(conn, item_guids)
+        
         results = []
-        hierarchy_cache = {}
-        for row in cursor.fetchall():
-            hierarchy = get_item_hierarchy(conn, row["item_guid"], hierarchy_cache)
+        for row in rows:
+            hierarchy = hierarchy_map.get(row["item_guid"], [])
             display_title = row["title"]
             if row["season_number"] and row["episode_number"]:
                 display_title = f"S{int(row['season_number']):02d}E{int(row['episode_number']):02d} - {row['title']}"
@@ -350,10 +403,18 @@ def get_play_history(limit=100, user_filter=None):
 
     cursor.execute(query, tuple(params))
     
+    rows = cursor.fetchall()
+    if not rows:
+        conn.close()
+        return []
+    
+    # 批量获取层级关系（优化）
+    item_guids = list(set(row["item_guid"] for row in rows))
+    hierarchy_map = get_items_hierarchy_batch(conn, item_guids)
+    
     results = []
-    hierarchy_cache = {}
-    for row in cursor.fetchall():
-        hierarchy = get_item_hierarchy(conn, row["item_guid"], hierarchy_cache)
+    for row in rows:
+        hierarchy = hierarchy_map.get(row["item_guid"], [])
         display_title = row["title"]
         if row["season_number"] and row["episode_number"]:
             display_title = f"S{int(row['season_number']):02d}E{int(row['episode_number']):02d} - {row['title']}"
@@ -384,6 +445,11 @@ def get_play_history(limit=100, user_filter=None):
     return results
 
 def get_stats():
+    # 检查缓存
+    with _stats_cache["lock"]:
+        if _stats_cache["data"] and (time.time() - _stats_cache["time"]) < _cache_ttl:
+            return _stats_cache["data"]
+
     conn = get_db_connection()
     if not conn:
         return {}
@@ -451,6 +517,12 @@ def get_stats():
         print(f"Stats error: {e}")
     
     conn.close()
+    
+    # 写入缓存
+    with _stats_cache["lock"]:
+        _stats_cache["data"] = stats
+        _stats_cache["time"] = time.time()
+    
     return stats
 
 def get_hourly_stats():
@@ -525,6 +597,9 @@ def index():
 
 @app.route('/api/stats')
 def api_stats():
+    if request.args.get('nocache'):
+        with _stats_cache["lock"]:
+            _stats_cache["data"] = None
     return jsonify(get_stats())
 
 @app.route('/api/current')
@@ -555,6 +630,14 @@ def api_users():
 
 @app.route('/api/logs')
 def api_logs():
+    if request.args.get('nocache'):
+        with _log_cache["lock"]:
+            _log_cache["data"] = None
+    # 检查缓存
+    with _log_cache["lock"]:
+        if _log_cache["data"] and (time.time() - _log_cache["time"]) < _cache_ttl:
+            return jsonify(_log_cache["data"])
+    
     if not config.LOG_ENABLED:
         return jsonify([])
     logs = []
@@ -595,10 +678,25 @@ def api_logs():
                     print(f"Log read error: {e}")
     
     logs.sort(key=lambda x: x['time'], reverse=True)
-    return jsonify(logs[:100])
+    result = logs[:100]
+    
+    # 写入缓存
+    with _log_cache["lock"]:
+        _log_cache["data"] = result
+        _log_cache["time"] = time.time()
+    
+    return jsonify(result)
 
 @app.route('/api/locations')
 def api_locations():
+    if request.args.get('nocache'):
+        with _locations_cache["lock"]:
+            _locations_cache["data"] = None
+    # 检查缓存
+    with _locations_cache["lock"]:
+        if _locations_cache["data"] and (time.time() - _locations_cache["time"]) < _cache_ttl:
+            return jsonify(_locations_cache["data"])
+    
     if not config.LOG_ENABLED:
         return jsonify([])
     logs = []
@@ -624,13 +722,22 @@ def api_locations():
                 except Exception as e:
                     print(f"Log read error: {e}")
 
+    # 去重 IP 查找（减少重复请求）
+    ip_cache = {}
+    for entry in logs:
+        ip = entry.get("ip", "")
+        if not ip:
+            continue
+        if ip not in ip_cache:
+            ip_cache[ip] = get_ip_info(ip)
+    
     # Aggregate by city with geo coordinates
     agg = {}
     for entry in logs:
         ip = entry.get("ip", "")
         if not ip:
             continue
-        ip_info = get_ip_info(ip)
+        ip_info = ip_cache.get(ip, {})
         lat = ip_info.get("lat")
         lon = ip_info.get("lon")
         city = ip_info.get("city") or ip_info.get("region") or ip_info.get("country") or "未知"
@@ -645,7 +752,14 @@ def api_locations():
             "type": "default"
         }
 
-    return jsonify(list(agg.values()))
+    result = list(agg.values())
+    
+    # 写入缓存
+    with _locations_cache["lock"]:
+        _locations_cache["data"] = result
+        _locations_cache["time"] = time.time()
+    
+    return jsonify(result)
 
 @app.route('/api/favorites')
 def api_favorites():

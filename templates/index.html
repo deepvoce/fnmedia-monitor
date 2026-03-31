@@ -239,7 +239,7 @@
         <button class="toggle" id="themeToggle" type="button">
           <span class="dot"></span><span id="themeLabel">浅色</span>
         </button>
-        <button class="ghost-btn" onclick="refreshAll()">刷新</button>
+        <button class="ghost-btn" onclick="refreshAll(true)">刷新</button>
       </div>
     </div>
 
@@ -316,8 +316,9 @@
       });
     }
 
-    async function loadStats() {
-      const res = await fetch('/api/stats');
+    async function loadStats(nocache) {
+      const qs = nocache ? '?nocache=1' : '';
+      const res = await fetch('/api/stats' + qs);
       const data = await res.json();
       document.getElementById('totalUsers').textContent = data.total_users||0;
       document.getElementById('activeUsers').textContent = data.active_users||0;
@@ -341,8 +342,9 @@
       }
     }
 
-    async function loadCurrentPlaying() {
-      const res = await fetch('/api/current');
+    async function loadCurrentPlaying(nocache) {
+      const qs = nocache ? '?nocache=1' : '';
+      const res = await fetch('/api/current' + qs);
       const data = await res.json();
       if (!data.length) {
         document.getElementById('currentPlaying').innerHTML = '<div class="muted">暂无观看</div>';
@@ -360,8 +362,9 @@
       `).join('');
     }
 
-    async function loadHistory() {
-      const res = await fetch('/api/history?limit=30');
+    async function loadHistory(nocache) {
+      const qs = nocache ? '&nocache=1' : '';
+      const res = await fetch('/api/history?limit=30' + qs);
       const data = await res.json();
       document.getElementById('historyBody').innerHTML = data.map(d=>`
         <tr>
@@ -380,8 +383,9 @@
     }
 
 
-    async function loadFavorites() {
-      const res = await fetch('/api/favorites');
+    async function loadFavorites(nocache) {
+      const qs = nocache ? '?nocache=1' : '';
+      const res = await fetch('/api/favorites' + qs);
       const data = await res.json();
       if (!data.length) {
         document.getElementById('favoritesContainer').innerHTML = '<div class="muted">暂无收藏</div>';
@@ -398,8 +402,9 @@
       `).join('');
     }
 
-    async function loadDownloads() {
-      const res = await fetch('/api/downloads');
+    async function loadDownloads(nocache) {
+      const qs = nocache ? '?nocache=1' : '';
+      const res = await fetch('/api/downloads' + qs);
       const data = await res.json();
       if (!data.length) {
         document.getElementById('downloadsContainer').innerHTML = '<div class="muted">暂无下载</div>';
@@ -416,9 +421,9 @@
       `).join('');
     }
 
-    async function refreshAll() {
-      await Promise.all([loadStats(), loadCurrentPlaying(), loadHistory(), loadFavorites(), loadDownloads()]);
-      const res = await fetch('/api/hourly');
+    async function refreshAll(nocache) {
+      await Promise.all([loadStats(nocache), loadCurrentPlaying(nocache), loadHistory(nocache), loadFavorites(nocache), loadDownloads(nocache)]);
+      const res = await fetch('/api/hourly' + (nocache ? '?nocache=1' : ''));
       initChart(await res.json());
       syncHistoryHeight();
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -460,8 +465,8 @@
         applyTheme(next);
         localStorage.setItem('fnmedia_theme', next);
       });
-      refreshAll();
-      setInterval(refreshAll, 30000);
+      refreshAll(true);
+      setInterval(() => refreshAll(false), 30000);
       window.addEventListener('resize', syncHistoryHeight);
     });
   </script>
