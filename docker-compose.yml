@@ -2,20 +2,19 @@ version: '3.8'
 
 services:
   fnmedia-monitor:
-    image: python:3.11-slim
+    image: deepvoce/fnmedia-monitor:v2.0
     container_name: fnmedia-monitor
     restart: unless-stopped
     ports:
-      - "5500:5000"
+      - "5000:5000"
     environment:
       - FNMEDIA_DB_PATH=/app/database/trimmedia.db
       - LOG_PATH=/app/logs
+      - DB_COPY_TTL=60
+      - LOG_ENABLED=0
       - TZ=Asia/Shanghai
     volumes:
       # 只读挂载数据库目录（避免容器内写入）
       - /usr/local/apps/@appdata/trim.media/database:/app/database:ro
-      - /vol3/1000/docker/fnmedia-monitor:/app/code
-    command: >
-      sh -c "pip install -r /app/code/requirements.txt && gunicorn -w 2 -b 0.0.0.0:5000 --chdir /app/code main:app"
     mem_limit: 200m
-    cpu_shares: 512
+    cpus: 0.5
