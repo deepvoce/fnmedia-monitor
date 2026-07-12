@@ -3,471 +3,1222 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>飞牛影视 · 监控</title>
+  <title>飞牛影视监控 · V2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
-      --bg: #eef2f6;
-      --ink: #1c1f26;
-      --muted: #606875;
-      --accent: #2f7bff;
-      --line: rgba(255,255,255,0.5);
-      --shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-      --glass: rgba(255,255,255,0.55);
-      --glass-border: rgba(255,255,255,0.75);
-      --glass-highlight: rgba(255,255,255,0.75);
-      --bg-solid: #ffffff;
-      --bg-bottom: linear-gradient(180deg, #cfe2ff 0%, #e7f1ff 50%, #ffffff 100%);
+      --bg: #07070c;
+      --bg-2: #0d0e16;
+      --glass: rgba(255,255,255,0.035);
+      --glass-strong: rgba(255,255,255,0.06);
+      --glass-border: rgba(255,255,255,0.08);
+      --glass-border-hover: rgba(255,255,255,0.16);
+      --ink: #f5f7fa;
+      --ink-2: #c5cad6;
+      --muted: #7a8194;
+      --muted-2: #4a5063;
+      --accent: #8b5cf6;
+      --accent-2: #06b6d4;
+      --accent-3: #ec4899;
+      --accent-soft: rgba(139,92,246,0.15);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --grad-1: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+      --grad-2: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+      --grad-3: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+      --grad-text: linear-gradient(135deg, #a78bfa 0%, #22d3ee 50%, #f472b6 100%);
+      --shadow-glow: 0 0 40px rgba(139,92,246,0.15);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --font: "Inter", -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
     }
-    [data-theme="dark"] {
-      --bg: #0f1116;
-      --ink: #e7eaf0;
-      --muted: #a0a8b6;
-      --accent: #4f8cff;
-      --line: rgba(255,255,255,0.18);
-      --shadow: 0 22px 44px rgba(0,0,0,0.55);
-      --glass: rgba(28,30,36,0.8);
-      --glass-border: rgba(255,255,255,0.28);
-      --glass-highlight: rgba(255,255,255,0.26);
-      --bg-solid: #06090f;
-      --bg-bottom: linear-gradient(180deg, #122a5c 0%, #0b1426 55%, #06090f 100%);
+    [data-theme="light"] {
+      --bg: #e8ecf8;
+      --bg-2: #ffffff;
+      --glass: rgba(255,255,255,0.78);
+      --glass-strong: rgba(255,255,255,0.9);
+      --glass-border: rgba(99,102,241,0.18);
+      --glass-border-hover: rgba(139,92,246,0.5);
+      --ink: #14152b;
+      --ink-2: #2e3050;
+      --muted: #4a4e6a;
+      --muted-2: #7a7e98;
+      --accent-soft: rgba(139,92,246,0.12);
+      --shadow-glow: 0 4px 24px rgba(99,102,241,0.1);
     }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
+    [data-theme="light"] body {
+      background: linear-gradient(135deg, #eef1fb 0%, #e8ecf8 40%, #e3e8f5 70%, #edeef9 100%);
+      background-attachment: fixed;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
     body {
-      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
       color: var(--ink);
-      font-family: "Manrope", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      letter-spacing: -0.01em;
-      background: var(--bg-solid);
-      min-height: 100dvh;
-    }
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      pointer-events: none;
-      background: var(--bg-bottom);
-      background-repeat: no-repeat;
-      background-size: 100% 100%;
-    }
-    .app {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 28px 20px 40px;
-      position: relative;
-      min-height: 100dvh;
-    }
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-    .brand-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 6px rgba(79,140,255,0.18);
-    }
-    .brand h1 { font-size: 20px; font-weight: 700; margin: 0; }
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .ghost-btn, .toggle {
-      background: linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0.1)), var(--glass);
-      border: 1px solid var(--glass-border);
-      color: var(--ink);
-      border-radius: 999px;
-      padding: 6px 12px;
-      cursor: pointer;
-      backdrop-filter: blur(22px) saturate(170%);
-      -webkit-backdrop-filter: blur(22px) saturate(170%);
-    }
-    .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-    .toggle .dot {
-      width: 14px; height: 14px; border-radius: 50%;
-      background: var(--accent); box-shadow: 0 0 0 4px rgba(79,140,255,0.2);
-    }
-
-    .grid { display: grid; gap: 16px; }
-    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
-
-    .card {
-      background: linear-gradient(180deg, var(--glass-highlight), rgba(255,255,255,0.18)), var(--glass);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(26px) saturate(175%);
-      -webkit-backdrop-filter: blur(26px) saturate(175%);
-      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-    }
-    .card:hover {
-      transform: translateY(-2px);
-      border-color: color-mix(in oklab, var(--accent) 35%, var(--glass-border));
-      box-shadow: 0 18px 36px rgba(0,0,0,0.2);
-    }
-    .card-head { padding: 16px 18px 0; font-weight: 600; font-size: 14px; }
-    .card-body { padding: 16px 18px 18px; flex: 1; }
-
-    .stat { display: flex; flex-direction: column; gap: 6px; }
-    .stat::before {
-      content: ""; width: 28px; height: 4px; border-radius: 999px;
-      background: linear-gradient(90deg, var(--accent), rgba(79,140,255,0.2));
-    }
-    .stat .label { color: var(--muted); font-size: 12px; }
-    .stat .value { font-size: 22px; font-weight: 700; }
-
-    .pill {
-      display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px;
-      font-size: 12px; background: rgba(255,255,255,0.25); color: var(--muted);
-    }
-    .count-badge {
-      min-width: 28px;
-      height: 28px;
-      padding: 0 8px;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 12px;
-      color: #ffffff;
-      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0) 45%),
-                  linear-gradient(135deg, #cfcfcf 0%, #9fa4ad 55%, #7d818a 100%);
-      box-shadow: inset 0 0 8px rgba(255,255,255,0.25);
-    }
-    [data-theme="dark"] .count-badge {
-      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.28), rgba(255,255,255,0) 45%),
-                  linear-gradient(135deg, #bfc3c9 0%, #8a9099 55%, #666b74 100%);
-      color: #ffffff;
-    }
-    [data-theme="dark"] .meta.time-strong { color: var(--ink); }
-    .list { display: flex; flex-direction: column; gap: 10px; }
-    .list-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 12px; border: 1px solid var(--glass-border); border-radius: 12px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.18));
-      backdrop-filter: blur(24px) saturate(170%);
-      -webkit-backdrop-filter: blur(24px) saturate(170%);
-    }
-    .list-item .meta { color: var(--muted); font-size: 12px; }
-    .progress-line { height: 6px; background: rgba(255,255,255,0.2); border-radius: 999px; overflow: hidden; }
-    .progress-line > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
-
-    .table-lite { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .table-lite th, .table-lite td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.15); text-align: left; }
-    .table-lite th { color: var(--muted); font-weight: 600; }
-    .title-ellipsis {
-      max-width: 110px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: inline-block;
-      vertical-align: middle;
-    }
-    .user-ellipsis {
-      max-width: 80px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: inline-block;
-      vertical-align: middle;
-    }
-    .time-cell { white-space: nowrap; }
-    .scroll-y {
-      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
+      transition: background 300ms ease, color 300ms ease;
     }
-    .progress-cell { min-width: 140px; }
-    .progress-wrap { display: flex; align-items: center; gap: 8px; }
-    .progress-track {
-      width: 50%;
-      height: 6px;
-      background: rgba(255,255,255,0.22);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .progress-track span {
-      display: block;
-      height: 100%;
-      background: var(--accent);
-      border-radius: 999px;
-      min-width: 2px;
-    }
-    .tag {
-      padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
-      background: color-mix(in oklab, var(--accent) 12%, transparent); color: var(--accent);
-    }
-    .muted { color: var(--muted); }
-    .chart-wrap { height: 220px; }
 
-    @media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 720px) {
-      .grid-4, .grid-2 { grid-template-columns: 1fr; }
-      .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    /* ---------- Aurora background ---------- */
+    .aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .aurora-blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.5; animation: drift 28s ease-in-out infinite; }
+    .aurora-blob.b1 { width: 600px; height: 600px; background: radial-gradient(circle, #8b5cf6, transparent 70%); top: -200px; left: -100px; }
+    .aurora-blob.b2 { width: 500px; height: 500px; background: radial-gradient(circle, #06b6d4, transparent 70%); top: 30%; right: -150px; animation-delay: -8s; animation-duration: 32s; }
+    .aurora-blob.b3 { width: 450px; height: 450px; background: radial-gradient(circle, #ec4899, transparent 70%); bottom: -100px; left: 30%; animation-delay: -16s; animation-duration: 26s; }
+    [data-theme="light"] .aurora-blob { opacity: 0.28; }
+    @keyframes drift {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33% { transform: translate(80px,-40px) scale(1.1); }
+      66% { transform: translate(-60px,60px) scale(0.95); }
     }
+
+    /* ---------- Shell ---------- */
+    .shell { position: relative; z-index: 1; min-height: 100vh; display: flex; }
+
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      width: 248px;
+      background: var(--glass);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-right: 1px solid var(--glass-border);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+      transition: transform 300ms ease;
+    }
+    [data-theme="light"] .sidebar {
+      background: rgba(248,250,255,0.96);
+    }
+    [data-theme="light"] .topbar {
+      background: rgba(248,250,255,0.96);
+    }
+    [data-theme="light"] .brand {
+      background: transparent;
+    }
+    .brand { padding: 18px 18px 16px; border-bottom: 1px solid var(--glass-border); }
+    .brand-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 6px 8px; border-radius: 12px;
+      transition: all 320ms cubic-bezier(0.4,0,0.2,1);
+    }
+    .brand-row:hover {
+      background: var(--glass-strong);
+      transform: scale(1.03);
+    }
+    .brand-logo-img {
+      width: 75%; max-width: 200px; height: auto; display: block; margin: 0 auto;
+      transition: all 320ms cubic-bezier(0.4,0,0.2,1);
+    }
+    .brand-row:hover .brand-logo-img {
+      transform: scale(1.02);
+      filter: drop-shadow(0 4px 12px rgba(139,92,246,0.3));
+    }
+    [data-theme="light"] .brand-logo-img { filter: none; }
+    [data-theme="light"] .brand-row:hover .brand-logo-img { filter: drop-shadow(0 4px 12px rgba(139,92,246,0.25)); }
+    .nav { flex: 1; padding: 18px 12px; overflow-y: auto; }
+    .nav-group { margin-bottom: 8px; }
+    .nav-title { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted-2); letter-spacing: 0.16em; text-transform: uppercase; padding: 12px 12px 8px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      border-radius: 10px; color: var(--ink-2); font-size: 13.5px; font-weight: 500;
+      cursor: pointer; transition: all 200ms cubic-bezier(0.4,0,0.2,1); position: relative; margin-bottom: 2px;
+      text-decoration: none;
+    }
+    .nav-item:hover { background: var(--glass-strong); color: var(--ink); transform: translateX(2px); }
+    .nav-item.active { background: var(--accent-soft); color: #fff; }
+    [data-theme="light"] .nav-item.active { color: var(--accent); }
+    .nav-item.active::before { content: ""; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--grad-1); border-radius: 0 3px 3px 0; box-shadow: 0 0 12px var(--accent); }
+    .nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; opacity: 0.85; }
+    .nav-icon svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .sidebar-foot { padding: 16px 20px; border-top: 1px solid var(--glass-border); font-size: 11px; color: var(--muted); }
+    .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; background: rgba(16,185,129,0.1); color: var(--success); font-size: 11px; font-weight: 600; border: 1px solid rgba(16,185,129,0.2); }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(16,185,129,0.2); animation: pulse 2s ease-in-out infinite; }
+
+    [data-theme="light"] .hero { background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(243,245,255,0.85) 100%); border: 1px solid var(--glass-border); }
+    [data-theme="light"] .hero::before { background: radial-gradient(circle, rgba(139,92,246,0.2), transparent 65%); }
+    [data-theme="light"] .hero::after { background: radial-gradient(circle, rgba(6,182,212,0.18), transparent 65%); }
+    [data-theme="light"] .stat-card .glow { opacity: 0.28; }
+    [data-theme="light"] .stat-card:hover .glow { opacity: 0.42; }
+    [data-theme="light"] .card { background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(243,245,255,0.85) 100%); }
+    [data-theme="light"] .heat-stat { background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(243,245,255,0.7)); }
+    [data-theme="light"] .card-eyebrow { color: var(--accent); }
+
+    /* ---------- Main ---------- */
+    .main { flex: 1; margin-left: 248px; display: flex; flex-direction: column; min-width: 0; }
+
+    /* ---------- Topbar ---------- */
+    .topbar {
+      height: 68px;
+      background: var(--glass);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 36px; position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-left { display: flex; flex-direction: column; }
+    .crumb { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; }
+    .topbar-title { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; margin-top: 1px; }
+    .topbar-actions { display: flex; align-items: center; gap: 12px; }
+    .clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); padding: 8px 14px; background: var(--glass-strong); border: 1px solid var(--glass-border); border-radius: 8px; }
+    .icon-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--glass-strong); border: 1px solid var(--glass-border); color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 200ms cubic-bezier(0.4,0,0.2,1); }
+    .icon-btn:hover { background: var(--glass); border-color: var(--glass-border-hover); color: var(--ink); transform: translateY(-1px); }
+    .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .btn { height: 36px; padding: 0 16px; border-radius: 10px; background: var(--grad-1); color: #fff; border: none; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 200ms cubic-bezier(0.4,0,0.2,1); box-shadow: 0 4px 20px rgba(139,92,246,0.35); position: relative; overflow: hidden; }
+    .btn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%); transform: translateX(-100%); transition: transform 600ms ease; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(139,92,246,0.5); }
+    .btn:hover::after { transform: translateX(100%); }
+    .btn:active { transform: translateY(0); }
+    .btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .btn .spin { animation: rotate 800ms linear infinite; }
+
+    /* ---------- Hero ---------- */
+    .hero { margin: 24px 36px 0; border-radius: 24px; padding: 40px 40px; position: relative; overflow: hidden; background: var(--glass-strong); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); box-shadow: var(--shadow-glow); }
+    .hero::before { content: ""; position: absolute; right: -100px; top: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(139,92,246,0.18), transparent 65%); border-radius: 50%; filter: blur(40px); animation: drift 20s ease-in-out infinite; }
+    .hero::after { content: ""; position: absolute; left: 20%; bottom: -150px; width: 350px; height: 350px; background: radial-gradient(circle, rgba(6,182,212,0.15), transparent 65%); border-radius: 50%; filter: blur(40px); animation: drift 24s ease-in-out infinite reverse; }
+    .hero-content { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .hero-text { flex: 1; min-width: 0; }
+    .hero-kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+    .hero-title { font-size: 32px; font-weight: 800; letter-spacing: -0.04em; margin-top: 10px; line-height: 1.1; color: var(--ink); }
+    .hero-sub { font-size: 14px; color: var(--muted); margin-top: 10px; max-width: 540px; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; background: var(--glass-strong); border: 1px solid var(--glass-border); font-family: var(--mono); font-size: 11px; color: var(--ink-2); flex-shrink: 0; }
+    .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 2s ease-in-out infinite; }
+
+    /* ---------- Content ---------- */
+    .content { padding: 28px 36px 48px; }
+    .section-label { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; margin: 36px 0 18px; display: flex; align-items: center; gap: 12px; scroll-margin-top: 84px; }
+    .section-label::after { content: ""; flex: 1; height: 1px; background: var(--glass-border); }
+    .section-label:first-child { margin-top: 0; }
+
+    .grid { display: grid; gap: 22px; }
+    .grid + .grid { margin-top: 22px; }
+    .row-stats { grid-template-columns: repeat(4, 1fr); }
+    .row-main { grid-template-columns: 1.4fr 1fr; }
+    .row-split { grid-template-columns: 1fr 1fr 1fr; }
+    .row-lower { grid-template-columns: 1fr 1fr; }
+    .row-heat { grid-template-columns: 1.6fr 1fr; }
+    .row-gap-lg { gap: 26px; }
+
+    /* ---------- Glass Card ---------- */
+    .card {
+      background: var(--glass);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: all 300ms cubic-bezier(0.4,0,0.2,1);
+      position: relative;
+    }
+    .card:hover { border-color: var(--glass-border-hover); box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .card-head { min-height: 52px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--glass-border); }
+    .card-head-left { display: flex; flex-direction: column; }
+    .card-eyebrow { font-family: var(--mono); font-size: 9.5px; color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-top: 1px; letter-spacing: -0.01em; }
+    .card-tag { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--ink-2); padding: 3px 9px; border-radius: 6px; background: var(--glass-strong); border: 1px solid var(--glass-border); letter-spacing: 0.04em; }
+    .card-body { padding: 20px; flex: 1; min-height: 0; }
+    .card-body.center-y { display: flex; flex-direction: column; justify-content: center; }
+    .card-body.scroll { overflow-y: auto; max-height: 360px; }
+    .card-body.scroll::-webkit-scrollbar { width: 4px; }
+    .card-body.scroll::-webkit-scrollbar-thumb { background: var(--glass-border-hover); border-radius: 4px; }
+    .card-body.nopad { padding: 0; }
+
+    /* ---------- Stat Cards ---------- */
+    .stat-card { padding: 22px; position: relative; overflow: hidden; }
+    .stat-card .glow { position: absolute; top: -50%; right: -30%; width: 200px; height: 200px; border-radius: 50%; filter: blur(50px); opacity: 0.25; transition: opacity 400ms ease; }
+    .stat-card:hover .glow { opacity: 0.5; }
+    .stat-card:nth-child(1) .glow { background: #8b5cf6; }
+    .stat-card:nth-child(2) .glow { background: #06b6d4; }
+    .stat-card:nth-child(3) .glow { background: #ec4899; }
+    .stat-card:nth-child(4) .glow { background: #10b981; }
+    .stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; position: relative; z-index: 1; }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .stat-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .stat-icon svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .stat-card:nth-child(1) .stat-icon { background: rgba(139,92,246,0.12); color: #a78bfa; }
+    .stat-card:nth-child(2) .stat-icon { background: rgba(6,182,212,0.12); color: #22d3ee; }
+    .stat-card:nth-child(3) .stat-icon { background: rgba(236,72,153,0.12); color: #f472b6; }
+    .stat-card:nth-child(4) .stat-icon { background: rgba(16,185,129,0.12); color: #34d399; }
+    .stat-value { font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; color: var(--ink); position: relative; z-index: 1; }
+    .stat-unit { font-size: 18px; color: var(--muted); font-weight: 600; margin-left: 3px; }
+    .stat-foot { font-size: 11px; color: var(--muted); margin-top: 10px; display: flex; align-items: center; gap: 6px; position: relative; z-index: 1; }
+    .stat-foot .delta { color: var(--success); font-family: var(--mono); font-weight: 600; }
+    .stat-spark { margin-top: 12px; height: 32px; position: relative; z-index: 1; }
+
+    /* ---------- Live badge ---------- */
+    .live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); font-family: var(--mono); font-size: 10px; font-weight: 700; color: #f87171; letter-spacing: 0.08em; }
+    .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: pulse 1.4s ease-in-out infinite; }
+
+    /* ---------- Empty state ---------- */
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 12px; color: var(--muted-2); min-height: 160px; text-align: center; }
+    .empty .ico { width: 48px; height: 48px; border-radius: 12px; background: var(--glass-strong); display: flex; align-items: center; justify-content: center; opacity: 0.6; }
+    .empty .ico svg { width: 22px; height: 22px; stroke: var(--muted); stroke-width: 1.5; fill: none; }
+    .empty .txt { font-size: 13px; color: var(--muted); }
+    .empty .hint { font-size: 11px; color: var(--muted-2); opacity: 0.7; font-family: var(--mono); }
+
+    /* ---------- List ---------- */
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .list-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--glass-border); border-radius: 12px; background: var(--glass-strong); transition: all 200ms cubic-bezier(0.4,0,0.2,1); }
+    .list-item:hover { border-color: var(--glass-border-hover); background: var(--glass); }
+    .avatar { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; flex-shrink: 0; }
+    .avatar.c1 { background: var(--grad-1); }
+    .avatar.c2 { background: var(--grad-2); }
+    .avatar.c3 { background: var(--grad-3); }
+    .avatar.c4 { background: linear-gradient(135deg, #f59e0b, #ec4899); }
+    .list-item-main { flex: 1; min-width: 0; }
+    .list-item-title { font-size: 13px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .list-item-side { text-align: right; flex-shrink: 0; }
+    .progress-line { height: 5px; background: var(--glass-border); border-radius: 5px; overflow: hidden; margin-top: 8px; }
+    .progress-line > span { display: block; height: 100%; background: var(--grad-1); border-radius: 5px; transition: width 800ms cubic-bezier(0.4,0,0.2,1); }
+    .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 24px; padding: 0 9px; border-radius: 7px; font-size: 11px; font-weight: 700; background: var(--accent-soft); color: #a78bfa; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+
+    /* ---------- Rank ---------- */
+    .rank { display: flex; flex-direction: column; gap: 6px; }
+    .rank-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; position: relative; transition: background 200ms ease; }
+    .rank-row:hover { background: var(--glass-strong); }
+    .rank-row:nth-child(1) { margin-top: 14px; }
+    .rank-bar { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(139,92,246,0.15), rgba(6,182,212,0.08)); transform-origin: left; transform: scaleX(0); transition: transform 800ms cubic-bezier(0.4,0,0.2,1); z-index: 0; border-radius: 10px; }
+    .rank-row.in .rank-bar { transform: scaleX(var(--w, 0)); }
+    .rank-row > * { position: relative; z-index: 1; }
+    .rank-no { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--muted); background: var(--glass-strong); flex-shrink: 0; position: relative; }
+    .rank-row:nth-child(1) .rank-no { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; box-shadow: 0 4px 12px rgba(245,158,11,0.4); }
+    .rank-row:nth-child(2) .rank-no { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #fff; }
+    .rank-row:nth-child(3) .rank-no { background: linear-gradient(135deg, #f97316, #c2410c); color: #fff; }
+    .rank-crown { position: absolute; top: -14px; left: 50%; transform: translateX(-50%) rotate(-12deg); width: 26px; height: 26px; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45)) drop-shadow(0 0 8px rgba(251,191,36,0.8)); animation: crown-bob 2.4s ease-in-out infinite; z-index: 2; }
+    @keyframes crown-bob { 0%,100%{transform:translateX(-50%) rotate(-12deg) translateY(0);} 50%{transform:translateX(-50%) rotate(-8deg) translateY(-3px);} }
+    .rank-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-count { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #a78bfa; font-variant-numeric: tabular-nums; }
+
+    /* ---------- Table ---------- */
+    .table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .table th { text-align: left; font-weight: 600; color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 12px 14px; border-bottom: 1px solid var(--glass-border); white-space: nowrap; position: sticky; top: 0; background: var(--bg-2); }
+    .table td { padding: 12px 14px; border-bottom: 1px solid var(--glass-border); color: var(--ink-2); }
+    .table tbody tr { transition: background 150ms ease; }
+    .table tbody tr:hover { background: var(--glass-strong); }
+    .ellipsis { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+    .ellipsis.s { max-width: 90px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; font-family: var(--mono); background: var(--accent-soft); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+    .prog-wrap { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+    .prog-track { flex: 1; height: 5px; background: var(--glass-border); border-radius: 5px; overflow: hidden; }
+    .prog-track > span { display: block; height: 100%; background: var(--grad-1); border-radius: 5px; transition: width 800ms ease; }
+    .prog-pct { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; width: 32px; text-align: right; }
+
+    /* ---------- Chart / map ---------- */
+    .chart-box { height: 240px; position: relative; }
+    .chart-box.tall { height: 280px; }
+    .chart-box.doughnut { height: 260px; }
+    .chart-box.big { height: 320px; }
+    .map-box { height: 280px; border-radius: 12px; overflow: hidden; }
+
+    /* ---------- Timeline (for history visualization) ---------- */
+    .timeline { position: relative; padding-left: 24px; }
+    .timeline::before { content: ""; position: absolute; left: 8px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(to bottom, var(--accent), var(--accent-2), transparent); border-radius: 2px; }
+    .tl-item { position: relative; padding: 10px 0 10px 16px; }
+    .tl-item::before { content: ""; position: absolute; left: -20px; top: 14px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .tl-item:hover::before { box-shadow: 0 0 0 5px var(--accent-soft); }
+    .tl-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .tl-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .tl-time { font-family: var(--mono); font-size: 10px; color: var(--muted-2); margin-top: 4px; }
+
+    /* ---------- Heat map (weekly activity) ---------- */
+    .heatmap { display: grid; grid-template-columns: 32px repeat(24, 1fr); gap: 5px; }
+    .hm-label { font-family: var(--mono); font-size: 10px; color: var(--muted); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+    .hm-cell { height: 24px; border-radius: 4px; background: var(--glass-strong); transition: all 150ms ease; cursor: pointer; position: relative; }
+    .hm-cell:hover { transform: scale(1.25); z-index: 2; box-shadow: 0 0 0 2px var(--accent); }
+    .hm-cell.l1 { background: rgba(139,92,246,0.25); }
+    .hm-cell.l2 { background: rgba(139,92,246,0.5); }
+    .hm-cell.l3 { background: rgba(139,92,246,0.75); }
+    .hm-cell.l4 { background: rgba(139,92,246,1); }
+    .hm-hours { display: grid; grid-template-columns: 32px repeat(24, 1fr); gap: 5px; margin-top: 8px; }
+    .hm-hours .hm-label { justify-content: center; padding: 0; }
+    .hm-hours > span { font-family: var(--mono); font-size: 9px; color: var(--muted-2); text-align: center; }
+
+    /* ---------- Heat summary (side card) ---------- */
+    .heat-stats { display: flex; flex-direction: column; gap: 14px; }
+    .heat-stat { padding: 14px 16px; border-radius: 12px; background: var(--glass-strong); border: 1px solid var(--glass-border); transition: all 250ms cubic-bezier(0.4,0,0.2,1); }
+    .heat-stat:hover { border-color: var(--glass-border-hover); transform: translateY(-1px); }
+    .heat-stat-lbl { font-family: var(--mono); font-size: 9.5px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .heat-stat-val { font-size: 22px; font-weight: 700; color: var(--ink); margin-top: 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .heat-stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ---------- PageCarousel: fixed height + damped wheel pagination ---------- */
+    .carousel { position: relative; display: flex; flex-direction: column; min-height: 380px; }
+    .carousel-viewport { overflow: hidden; height: 300px; transition: height 420ms cubic-bezier(0.4,0,0.2,1); }
+    .carousel-track { display: flex; flex-direction: column; transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+    .carousel-page { flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; }
+    .carousel-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; flex-shrink: 0; }
+    .carousel-arrow { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--ink-2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 200ms ease; flex-shrink: 0; }
+    .carousel-arrow:hover:not(:disabled) { border-color: var(--glass-border-hover); color: var(--ink); background: var(--accent-soft); transform: scale(1.05); }
+    .carousel-arrow:disabled { opacity: 0.25; cursor: not-allowed; }
+    .carousel-arrow svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .carousel-dots { display: flex; align-items: center; gap: 8px; }
+    .carousel-dot { width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: var(--glass-border-hover); transition: all 350ms cubic-bezier(0.4,0,0.2,1); }
+    .carousel-dot.active { width: 26px; border-radius: 4px; background: var(--grad-1); }
+    .carousel-dot:hover:not(.active) { background: var(--muted); transform: scale(1.25); }
+    .carousel-hint { font-family: var(--mono); font-size: 9px; color: var(--muted-2); text-align: center; letter-spacing: 0.08em; opacity: 0.7; margin-top: 10px; flex-shrink: 0; }
+    .records-empty { padding: 40px 0; text-align: center; color: var(--muted-2); font-size: 12px; }
+
+    /* ---------- Progress ring ---------- */
+    .ring-wrap { display: flex; align-items: center; gap: 20px; }
+    .ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+    .ring svg { transform: rotate(-90deg); }
+    .ring-bg { stroke: var(--glass-border); fill: none; stroke-width: 8; }
+    .ring-fg { stroke: url(#ringGrad); fill: none; stroke-width: 8; stroke-linecap: round; stroke-dasharray: 339.292; stroke-dashoffset: 339.292; transition: stroke-dashoffset 1200ms cubic-bezier(0.4,0,0.2,1); }
+    .ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring-val { font-size: 26px; font-weight: 800; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .ring-lbl { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+    .ring-stats { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .ring-stat { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--glass-strong); border-radius: 8px; }
+    .ring-stat-lbl { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .ring-stat-lbl::before { content: ""; width: 8px; height: 8px; border-radius: 2px; }
+    .ring-stat:nth-child(1) .ring-stat-lbl::before { background: #8b5cf6; }
+    .ring-stat:nth-child(2) .ring-stat-lbl::before { background: #06b6d4; }
+    .ring-stat:nth-child(3) .ring-stat-lbl::before { background: #ec4899; }
+    .ring-stat-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--ink); }
+
+    /* ---------- Footer ---------- */
+    .footer { padding: 24px 36px 32px; font-family: var(--mono); font-size: 10px; color: var(--muted-2); letter-spacing: 0.12em; text-transform: uppercase; border-top: 1px solid var(--glass-border); margin-top: 24px; text-align: center; }
+
+    /* ---------- Animations ---------- */
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity 600ms cubic-bezier(0.4,0,0.2,1), transform 600ms cubic-bezier(0.4,0,0.2,1); }
+    .reveal.in { opacity: 1; transform: none; }
+    .skeleton { background: linear-gradient(90deg, var(--glass-strong) 25%, var(--glass) 37%, var(--glass-strong) 63%); background-size: 400% 100%; animation: skel 1.4s ease-in-out infinite; border-radius: 8px; color: transparent !important; }
+    @keyframes skel { 0%{background-position:100% 0;} 100%{background-position:0 0;} }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 1200px) { .row-stats { grid-template-columns: repeat(2, 1fr); } .row-main, .row-lower, .row-split, .row-heat { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main { margin-left: 0; } .hero { margin: 16px 16px 0; padding: 24px; } .hero-title { font-size: 24px; } .content { padding: 16px 16px 40px; } .row-stats { grid-template-columns: 1fr; } .topbar { padding: 0 16px; } .crumb { display: none; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
+  <div class="aurora">
+    <div class="aurora-blob b1"></div>
+    <div class="aurora-blob b2"></div>
+    <div class="aurora-blob b3"></div>
+  </div>
+
+  <div class="shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
       <div class="brand">
-        <div class="brand-dot"></div>
-        <h1>飞牛影视监控</h1>
-      </div>
-      <div class="top-actions">
-        <span id="lastUpdate">--</span>
-        <button class="toggle" id="themeToggle" type="button">
-          <span class="dot"></span><span id="themeLabel">浅色</span>
-        </button>
-        <button class="ghost-btn" onclick="refreshAll(true)">刷新</button>
-      </div>
-    </div>
-
-    <div class="grid grid-4">
-      <div class="card"><div class="card-body stat"><div class="label">总用户</div><div class="value" id="totalUsers">-</div></div></div>
-      <div class="card"><div class="card-body stat"><div class="label">活跃用户</div><div class="value" id="activeUsers">-</div></div></div>
-      <div class="card"><div class="card-body stat"><div class="label">今日播放</div><div class="value" id="todayPlays">-</div></div></div>
-      <div class="card"><div class="card-body stat"><div class="label">今日时长(小时)</div><div class="value" id="todayWatchTime">-</div></div></div>
-    </div>
-
-    <div class="grid grid-2" style="margin-top:16px;">
-      <div class="card">
-        <div class="card-head">当前观看</div>
-        <div class="card-body">
-          <div id="currentPlaying" class="list"></div>
+        <div class="brand-row">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="飞牛影视监控" class="brand-logo-img">
         </div>
       </div>
-      <div class="card">
-        <div class="card-head">播放时段</div>
-        <div class="card-body">
-          <div class="chart-wrap"><canvas id="hourlyChart"></canvas></div>
+      <nav class="nav">
+        <div class="nav-group">
+          <div class="nav-title">工作台</div>
+          <a class="nav-item active" data-target="sec-core" href="#sec-core">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <span>概览</span>
+          </a>
+          <a class="nav-item" data-target="sec-live" href="#sec-live">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none"/></svg></span>
+            <span>播放动态</span>
+          </a>
+          <a class="nav-item" data-target="sec-content" href="#sec-content">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+            <span>内容库</span>
+          </a>
         </div>
+        <div class="nav-group">
+          <div class="nav-title">分析</div>
+          <a class="nav-item" data-target="sec-detail" href="#sec-detail">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+            <span>访客分析</span>
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="status-pill"><span class="status-dot"></span>系统运行中</span>
+        <div style="margin-top:8px; opacity:0.6; font-family: var(--mono);">SYNC · 30s</div>
       </div>
-    </div>
+    </aside>
 
-    <div class="grid grid-2" style="margin-top:16px;">
-      <div class="card">
-        <div class="card-head">观看历史</div>
-        <div class="card-body scroll-y" id="historyBodyWrap">
-          <table class="table-lite">
-            <thead>
-              <tr>
-                <th>用户</th><th>内容</th><th>类型</th><th class="progress-cell">进度</th><th>时间</th>
-              </tr>
-            </thead>
-            <tbody id="historyBody"></tbody>
-          </table>
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="crumb">FN MEDIA / OVERVIEW</div>
+          <div class="topbar-title">概览</div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-head">热门内容</div>
-        <div class="card-body" id="topContentWrap" style="display:flex; flex-direction:column;">
-          <div id="topContent" class="list"></div>
-          <div class="muted" id="topContentEmpty" style="display:none;">暂无数据</div>
+        <div class="topbar-actions">
+          <span class="clock" id="clock">--:--</span>
+          <button class="icon-btn" title="切换主题" id="themeToggle">
+            <svg viewBox="0 0 24 24" id="themeIcon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+          <button class="btn" id="refreshBtn">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span>刷新数据</span>
+          </button>
         </div>
-      </div>
-    </div>
+      </header>
 
-    <div class="grid grid-2" style="margin-top:16px;">
-      <div class="card">
-        <div class="card-head">收藏记录</div>
-        <div class="card-body" id="favoritesContainer"></div>
+      <!-- Hero -->
+      <div class="hero reveal">
+        <div class="hero-content">
+          <div class="hero-text">
+            <div class="hero-kicker">YOUR MEDIA SPACE</div>
+            <h1 class="hero-title">今天，想看点什么？</h1>
+            <p class="hero-sub">这里记录着每一次播放、收藏与下载的动态。实时同步你的飞牛 NAS 影视库。</p>
+          </div>
+          <div class="hero-badge"><span class="dot"></span>实时 · 30s</div>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-head">下载记录</div>
-        <div class="card-body" id="downloadsContainer"></div>
-      </div>
+
+      <main class="content">
+        <div class="section-label" id="sec-core">核心指标</div>
+        <!-- Stats with sparklines -->
+        <div class="grid row-stats">
+          <div class="card stat-card reveal">
+            <div class="glow"></div>
+            <div class="stat-head">
+              <span class="stat-label">总用户</span>
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            </div>
+            <div class="stat-value" id="totalUsers" data-cur="0">0</div>
+            <div class="stat-foot">已收录账号 <span class="delta" id="newUsers">+0</span></div>
+            <div class="stat-spark"><canvas id="sparkUsers"></canvas></div>
+          </div>
+          <div class="card stat-card reveal">
+            <div class="glow"></div>
+            <div class="stat-head">
+              <span class="stat-label">活跃用户</span>
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+            </div>
+            <div class="stat-value" id="activeUsers" data-cur="0">0</div>
+            <div class="stat-foot">有观看记录的用户</div>
+            <div class="stat-spark"><canvas id="sparkActive"></canvas></div>
+          </div>
+          <div class="card stat-card reveal">
+            <div class="glow"></div>
+            <div class="stat-head">
+              <span class="stat-label">今日播放</span>
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none"/></svg></div>
+            </div>
+            <div class="stat-value" id="todayPlays" data-cur="0">0</div>
+            <div class="stat-foot">今日新增播放</div>
+            <div class="stat-spark"><canvas id="sparkPlays"></canvas></div>
+          </div>
+          <div class="card stat-card reveal">
+            <div class="glow"></div>
+            <div class="stat-head">
+              <span class="stat-label">今日时长</span>
+              <div class="stat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            </div>
+            <div class="stat-value"><span id="todayWatchTime" data-cur="0">0</span><span class="stat-unit">h</span></div>
+            <div class="stat-foot">累计观看时长</div>
+            <div class="stat-spark"><canvas id="sparkTime"></canvas></div>
+          </div>
+        </div>
+
+        <div class="section-label">活动总览</div>
+        <!-- Big overview: hourly area + activity ring -->
+        <div class="grid row-main">
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">24H TIMELINE</span>
+                <span class="card-title">播放时段趋势</span>
+              </div>
+              <span class="card-tag">今日</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-box big"><canvas id="hourlyChart"></canvas></div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">ACTIVITY</span>
+                <span class="card-title">活动概览</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="ring-wrap">
+                <div class="ring">
+                  <svg width="120" height="120" viewBox="0 0 120 120">
+                    <defs>
+                      <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#8b5cf6"/>
+                        <stop offset="100%" stop-color="#06b6d4"/>
+                      </linearGradient>
+                    </defs>
+                    <circle class="ring-bg" cx="60" cy="60" r="54"/>
+                    <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="54"/>
+                  </svg>
+                  <div class="ring-text">
+                    <div class="ring-val" id="ringVal">0%</div>
+                    <div class="ring-lbl">活跃率</div>
+                  </div>
+                </div>
+                <div class="ring-stats">
+                  <div class="ring-stat"><span class="ring-stat-lbl">总用户</span><span class="ring-stat-val" id="rsTotal">0</span></div>
+                  <div class="ring-stat"><span class="ring-stat-lbl">活跃用户</span><span class="ring-stat-val" id="rsActive">0</span></div>
+                  <div class="ring-stat"><span class="ring-stat-lbl">今日播放</span><span class="ring-stat-val" id="rsPlays">0</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weekly heat map + summary -->
+        <div class="grid row-heat reveal" style="margin-top:18px;">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">WEEKLY ACTIVITY</span>
+                <span class="card-title">周活动热力图</span>
+              </div>
+              <span class="card-tag">7天 × 24h</span>
+            </div>
+            <div class="card-body center-y">
+              <div id="heatmap" class="heatmap"></div>
+              <div class="hm-hours" id="hmHours"></div>
+              <div style="display:flex; align-items:center; gap:10px; margin-top:14px; font-family:var(--mono); font-size:10px; color:var(--muted);">
+                <span>少</span>
+                <div style="width:14px;height:14px;border-radius:3px;background:var(--glass-strong);"></div>
+                <div style="width:14px;height:14px;border-radius:3px;background:rgba(139,92,246,0.2);"></div>
+                <div style="width:14px;height:14px;border-radius:3px;background:rgba(139,92,246,0.4);"></div>
+                <div style="width:14px;height:14px;border-radius:3px;background:rgba(139,92,246,0.6);"></div>
+                <div style="width:14px;height:14px;border-radius:3px;background:rgba(139,92,246,0.85);box-shadow:0 0 8px rgba(139,92,246,0.4);"></div>
+                <span>多</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">WEEK SUMMARY</span>
+                <span class="card-title">本周活动概览</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="heat-stats">
+                <div class="heat-stat">
+                  <div class="heat-stat-lbl">总活动数</div>
+                  <div class="heat-stat-val" id="heatTotal">0</div>
+                  <div class="heat-stat-sub">本周累计播放次数</div>
+                </div>
+                <div class="heat-stat">
+                  <div class="heat-stat-lbl">峰值时段</div>
+                  <div class="heat-stat-val" id="heatPeak" style="font-size:18px;">—</div>
+                  <div class="heat-stat-sub" id="heatPeakCount">最活跃的小时</div>
+                </div>
+                <div class="heat-stat">
+                  <div class="heat-stat-lbl">最活跃日</div>
+                  <div class="heat-stat-val" id="heatBestDay" style="font-size:18px;">—</div>
+                  <div class="heat-stat-sub" id="heatBestDayCount">当日活动总数</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label" id="sec-live">实时动态</div>
+        <div class="grid row-main">
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">LIVE ACTIVITY</span>
+                <span class="card-title">正在观看</span>
+              </div>
+              <span class="live">LIVE</span>
+            </div>
+            <div class="card-body scroll" style="max-height:320px;">
+              <div id="currentPlaying" class="list"></div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">LIBRARY</span>
+                <span class="card-title">内容类型分布</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="chart-box doughnut"><canvas id="typeChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label" id="sec-content">内容分析</div>
+        <div class="grid row-lower">
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">TOP CONTENT</span>
+                <span class="card-title">热门内容排行</span>
+              </div>
+              <span class="card-tag">7天</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-box tall"><canvas id="topContentChart"></canvas></div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">TOP USERS</span>
+                <span class="card-title">用户排行</span>
+              </div>
+              <span class="card-tag">7天</span>
+            </div>
+            <div class="card-body scroll" style="max-height:340px;">
+              <div id="topUsers" class="rank"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label" id="sec-detail">详细记录</div>
+        <div class="grid row-lower">
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">RECENTLY WATCHED</span>
+                <span class="card-title">观看历史时间轴</span>
+              </div>
+              <span class="card-tag" id="historyCount">0</span>
+            </div>
+            <div class="card-body scroll" style="max-height:380px;">
+              <div id="historyTimeline" class="timeline"></div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">PLAYBACK DURATION</span>
+                <span class="card-title">播放时长分布</span>
+              </div>
+              <span class="card-tag">7天</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-box tall"><canvas id="durationChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid row-lower">
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">VISITOR LOGS</span>
+                <span class="card-title">访客日志</span>
+              </div>
+              <span class="card-tag" id="logCount">0</span>
+            </div>
+            <div class="card-body scroll nopad" style="max-height:320px;">
+              <table class="table">
+                <thead><tr><th>IP</th><th>位置</th><th>设备</th><th>路径</th><th>时间</th></tr></thead>
+                <tbody id="logsBody"></tbody>
+              </table>
+              <div class="empty" id="logsEmpty" style="display:none;">
+                <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/></svg></div>
+                <div class="txt">访问统计已关闭</div>
+                <div class="hint">设置 LOG_ENABLED=1 后查看</div>
+              </div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">VISITOR MAP</span>
+                <span class="card-title">访客地图</span>
+              </div>
+              <span class="card-tag" id="mapCount">0</span>
+            </div>
+            <div class="card-body">
+              <div id="mapWrap" class="map-box"></div>
+              <div class="empty" id="mapEmpty" style="display:none;">
+                <div class="ico"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                <div class="txt">访问统计已关闭</div>
+                <div class="hint">请设置开启后查看来源</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid row-split row-gap-lg">
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">SAVED</span>
+                <span class="card-title">收藏记录</span>
+              </div>
+              <span class="card-tag" id="favCount">0</span>
+            </div>
+            <div class="card-body">
+              <div class="carousel" id="favCarousel">
+                <div class="carousel-viewport">
+                  <div class="carousel-track" id="favTrack"></div>
+                </div>
+                <div class="carousel-nav">
+                  <button class="carousel-arrow" data-carousel="favCarousel" data-dir="-1" aria-label="上一页"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <div class="carousel-dots" id="favDots"></div>
+                  <button class="carousel-arrow" data-carousel="favCarousel" data-dir="1" aria-label="下一页"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+                <div class="carousel-hint">滚轮 / 箭头 · 4 条 / 页</div>
+              </div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">DOWNLOADED</span>
+                <span class="card-title">下载任务</span>
+              </div>
+              <span class="card-tag" id="dlCount">0</span>
+            </div>
+            <div class="card-body">
+              <div class="carousel" id="dlCarousel">
+                <div class="carousel-viewport">
+                  <div class="carousel-track" id="dlTrack"></div>
+                </div>
+                <div class="carousel-nav">
+                  <button class="carousel-arrow" data-carousel="dlCarousel" data-dir="-1" aria-label="上一页"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <div class="carousel-dots" id="dlDots"></div>
+                  <button class="carousel-arrow" data-carousel="dlCarousel" data-dir="1" aria-label="下一页"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+                <div class="carousel-hint">滚轮 / 箭头 · 4 条 / 页</div>
+              </div>
+            </div>
+          </div>
+          <div class="card reveal">
+            <div class="card-head">
+              <div class="card-head-left">
+                <span class="card-eyebrow">SYSTEM</span>
+                <span class="card-title">系统状态</span>
+              </div>
+            </div>
+            <div class="card-body" id="systemStatus">
+              <div class="carousel" id="sysCarousel">
+                <div class="carousel-viewport">
+                  <div class="carousel-track" id="sysTrack"></div>
+                </div>
+                <div class="carousel-nav">
+                  <button class="carousel-arrow" data-carousel="sysCarousel" data-dir="-1" aria-label="上一页"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+                  <div class="carousel-dots" id="sysDots"></div>
+                  <button class="carousel-arrow" data-carousel="sysCarousel" data-dir="1" aria-label="下一页"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+                </div>
+                <div class="carousel-hint">滚轮 / 箭头 · 4 条 / 页</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">FNMEDIA MONITOR · DATA REFRESHES EVERY 30 SECONDS · V2.0</footer>
     </div>
   </div>
 
   <script>
-    let hourlyChart = null;
+    let hourlyChart=null, typeChart=null, topContentChart=null, durationChart=null, leafletMap=null, tileLayer=null, mapMarkers=[];
+    const sparkCharts={};
 
-    function initChart(hourlyData) {
-      const ctx = document.getElementById('hourlyChart').getContext('2d');
-      if (hourlyChart) hourlyChart.destroy();
-      hourlyChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: Array.from({length:24},(_,i)=>`${i}`),
-          datasets:[{label:'播放',data:hourlyData,backgroundColor:'rgba(79,140,255,0.6)',borderColor:'rgba(79,140,255,1)',borderWidth:1,borderRadius:6}]
-        },
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#9aa3b2'}},y:{grid:{color:'rgba(255,255,255,0.12)'},ticks:{color:'#9aa3b2'}}}}
-      });
+    function chartColors(){
+      const dark=document.body.getAttribute('data-theme')!=='light';
+      return {
+        accent:'#8b5cf6', accent2:'#06b6d4', accent3:'#ec4899',
+        grid: dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.04)',
+        tick: dark?'#7a8194':'#6b7280'
+      };
     }
 
-    async function loadStats(nocache) {
-      const qs = nocache ? '?nocache=1' : '';
-      const res = await fetch('/api/stats' + qs);
-      const data = await res.json();
-      document.getElementById('totalUsers').textContent = data.total_users||0;
-      document.getElementById('activeUsers').textContent = data.active_users||0;
-      document.getElementById('todayPlays').textContent = data.today_plays||0;
-      document.getElementById('todayWatchTime').textContent = data.today_watch_time||0;
-
-      if (data.top_content && data.top_content.length) {
-        document.getElementById('topContent').innerHTML = data.top_content.map((t,i)=>`
-          <div class="list-item">
-            <div>
-              <div>${i+1}. ${t.title}</div>
-              <div class="meta">近7天播放</div>
-            </div>
-            <span class="count-badge">${t.count}</span>
-          </div>
-        `).join('');
-        document.getElementById('topContentEmpty').style.display = 'none';
-      } else {
-        document.getElementById('topContent').innerHTML = '';
-        document.getElementById('topContentEmpty').style.display = 'block';
-      }
+    function countUp(el,target,dur=1200){
+      const start=parseFloat(el.dataset.cur||'0');
+      const isFloat=!Number.isInteger(target);
+      const t0=performance.now();
+      el.dataset.cur=target;
+      (function step(now){
+        const t=Math.min(1,(now-t0)/dur);
+        const e=1-Math.pow(1-t,4);
+        const v=start+(target-start)*e;
+        el.textContent=isFloat?v.toFixed(1):Math.round(v).toLocaleString('zh-CN');
+        if(t<1)requestAnimationFrame(step);
+        else el.textContent=isFloat?target.toFixed(1):Math.round(target).toLocaleString('zh-CN');
+      })(t0);
     }
 
-    async function loadCurrentPlaying(nocache) {
-      const qs = nocache ? '?nocache=1' : '';
-      const res = await fetch('/api/current' + qs);
-      const data = await res.json();
-      if (!data.length) {
-        document.getElementById('currentPlaying').innerHTML = '<div class="muted">暂无观看</div>';
-        return;
-      }
-      document.getElementById('currentPlaying').innerHTML = data.map(d=>`
-        <div class="list-item">
-          <div>
-            <div>${d.title}</div>
-            <div class="meta">${d.user} · ${d.type || '未知'}</div>
-            <div class="progress-line" style="margin-top:6px;"><span style="width:${d.progress||0}%;"></span></div>
-          </div>
-          <div class="meta">${d.position}/${d.duration}</div>
-        </div>
-      `).join('');
+    function showSkeleton(el,n=3){ el.innerHTML=Array.from({length:n},()=>'<div class="skeleton" style="height:52px;border-radius:12px;">&nbsp;</div>').join(''); }
+
+    function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+    function makeSpark(id,data,color){
+      const ctx=document.getElementById(id);
+      if(!ctx)return;
+      if(sparkCharts[id])sparkCharts[id].destroy();
+      const g=ctx.getContext('2d').createLinearGradient(0,0,0,32);
+      g.addColorStop(0,color+'66'); g.addColorStop(1,color+'00');
+      sparkCharts[id]=new Chart(ctx,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,backgroundColor:g,borderWidth:2,fill:true,tension:0.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:800},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}});
     }
 
-    async function loadHistory(nocache) {
-      const qs = nocache ? '&nocache=1' : '';
-      const res = await fetch('/api/history?limit=30' + qs);
-      const data = await res.json();
-      document.getElementById('historyBody').innerHTML = data.map(d=>`
-        <tr>
-          <td><span class="user-ellipsis" title="${d.user}">${d.user}</span></td>
-          <td><span class="title-ellipsis" title="${d.title}">${d.title}</span></td>
-          <td><span class="tag">${d.type || '未知'}</span></td>
-          <td class="progress-cell">
-            <div class="progress-wrap">
-              <div class="progress-track"><span style="width:${d.progress||0}%"></span></div>
-              <span class="muted">${d.progress || 0}%</span>
-            </div>
-          </td>
-          <td class="muted time-cell">${d.end_time || ''}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="5" class="muted">暂无数据</td></tr>';
+    function initHourlyChart(data){
+      const ctx=document.getElementById('hourlyChart').getContext('2d');
+      const c=chartColors();
+      if(hourlyChart)hourlyChart.destroy();
+      const g=ctx.createLinearGradient(0,0,0,320);
+      g.addColorStop(0,c.accent+'cc'); g.addColorStop(0.5,c.accent2+'66'); g.addColorStop(1,'rgba(6,182,212,0.05)');
+      hourlyChart=new Chart(ctx,{type:'line',data:{labels:Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00'),datasets:[{data,borderColor:c.accent,backgroundColor:g,borderWidth:3,fill:true,tension:0.4,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:c.accent,pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1200,easing:'easeOutQuart'},interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',titleColor:'#fff',bodyColor:'#c5cad6',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,displayColors:false,callbacks:{label:(ctx)=>'播放 '+ctx.parsed.y+' 次'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},y:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true}}}});
     }
 
-
-    async function loadFavorites(nocache) {
-      const qs = nocache ? '?nocache=1' : '';
-      const res = await fetch('/api/favorites' + qs);
-      const data = await res.json();
-      if (!data.length) {
-        document.getElementById('favoritesContainer').innerHTML = '<div class="muted">暂无收藏</div>';
-        return;
-      }
-      document.getElementById('favoritesContainer').innerHTML = data.map(d=>`
-        <div class="list-item">
-          <div>
-            <div>${d.title}</div>
-            <div class="meta">${d.user} · ${d.type}</div>
-          </div>
-          <div class="meta time-strong">${d.add_time || ''}</div>
-        </div>
-      `).join('');
+    function initDoughnut(td){
+      const ctx=document.getElementById('typeChart').getContext('2d');
+      if(typeChart)typeChart.destroy();
+      const c=chartColors();
+      const labels=td.map(d=>d.type||'未知');
+      const data=td.map(d=>d.count);
+      const total=data.reduce((a,b)=>a+b,0);
+      const colors=['#8b5cf6','#06b6d4','#ec4899','#f59e0b','#10b981','#a78bfa','#22d3ee','#f472b6'];
+      typeChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:labels.map((_,i)=>colors[i%colors.length]),borderColor:'transparent',borderWidth:2,hoverOffset:12}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',animation:{duration:1200,animateRotate:true,animateScale:true},plugins:{legend:{position:'right',labels:{color:c.tick,font:{size:11},boxWidth:10,padding:12,usePointStyle:true}},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,callbacks:{label:(ctx)=>' '+ctx.label+': '+ctx.parsed+' ('+Math.round(ctx.parsed/total*100)+'%)'}}}},plugins:[{id:'center',afterDraw(ch){const{ctx,chartArea:{left,right,top,bottom}}=ch;const x=(left+right)/2,y=(top+bottom)/2;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#a78bfa';ctx.font='800 26px Inter';ctx.fillText(total,x,y-6);ctx.fillStyle=c.tick;ctx.font='500 10px JetBrains Mono';ctx.fillText('TOTAL',x,y+14);ctx.restore();}}]});
     }
 
-    async function loadDownloads(nocache) {
-      const qs = nocache ? '?nocache=1' : '';
-      const res = await fetch('/api/downloads' + qs);
-      const data = await res.json();
-      if (!data.length) {
-        document.getElementById('downloadsContainer').innerHTML = '<div class="muted">暂无下载</div>';
-        return;
-      }
-      document.getElementById('downloadsContainer').innerHTML = data.map(d=>`
-        <div class="list-item">
-          <div>
-            <div>${d.media_file}</div>
-            <div class="meta">${d.user} · ${d.resolution || ''}</div>
-          </div>
-          <div class="meta">${d.status}</div>
-        </div>
-      `).join('');
+    function initTopContentChart(items){
+      const ctx=document.getElementById('topContentChart').getContext('2d');
+      const c=chartColors();
+      if(topContentChart)topContentChart.destroy();
+      const labels=items.map(x=>x.title||'未知');
+      const data=items.map(x=>x.count);
+      const g=ctx.createLinearGradient(0,0,400,0);
+      g.addColorStop(0,c.accent); g.addColorStop(1,c.accent2);
+      topContentChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data,backgroundColor:g,borderRadius:8,borderSkipped:false,barPercentage:0.6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:1000,easing:'easeOutQuart'},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,callbacks:{label:(ctx)=>' 播放 '+ctx.parsed.x+' 次'}}},scales:{x:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:11}}}}}});
     }
 
-    async function refreshAll(nocache) {
-      await Promise.all([loadStats(nocache), loadCurrentPlaying(nocache), loadHistory(nocache), loadFavorites(nocache), loadDownloads(nocache)]);
-      const res = await fetch('/api/hourly' + (nocache ? '?nocache=1' : ''));
-      initChart(await res.json());
-      syncHistoryHeight();
-      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    function initDurationChart(data){
+      const ctx=document.getElementById('durationChart').getContext('2d');
+      const c=chartColors();
+      if(durationChart)durationChart.destroy();
+      const g=ctx.createLinearGradient(0,0,0,280);
+      g.addColorStop(0,c.accent3+'cc'); g.addColorStop(1,c.accent+'33');
+      durationChart=new Chart(ctx,{type:'bar',data:{labels:data.map(d=>d.label),datasets:[{data:data.map(d=>d.value),backgroundColor:g,borderRadius:8,borderSkipped:false,barPercentage:0.7}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1000},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(236,72,153,0.3)',borderWidth:1,cornerRadius:10,padding:12,displayColors:false,callbacks:{label:(ctx)=>' '+ctx.parsed.y+' 次'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:10}}},y:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true}}}});
     }
 
-    function syncHistoryHeight() {
-      const topWrap = document.getElementById('topContentWrap');
-      const historyWrap = document.getElementById('historyBodyWrap');
-      const topList = document.getElementById('topContent');
-      if (!topWrap || !historyWrap) return;
-      let target = 0;
-      if (topList) {
-        const firstItem = topList.querySelector('.list-item');
-        if (firstItem) {
-          const itemHeight = firstItem.getBoundingClientRect().height;
-          const listStyle = window.getComputedStyle(topList);
-          const gap = parseFloat(listStyle.gap || '0');
-          target = itemHeight * 10 + gap * 9;
+    function initHeatmap(hourlyData){
+      const wrap=document.getElementById('heatmap');
+      const hoursWrap=document.getElementById('hmHours');
+      const days=['周一','周二','周三','周四','周五','周六','周日'];
+      let html='';
+      const dayTotals=[0,0,0,0,0,0,0];
+      const hourTotals=new Array(24).fill(0);
+      let grandTotal=0;
+      days.forEach((day,di)=>{
+        html+='<div class="hm-label">'+day+'</div>';
+        for(let h=0;h<24;h++){
+          const v=hourlyData[di]&&hourlyData[di][h]?hourlyData[di][h]:0;
+          dayTotals[di]+=v;
+          hourTotals[h]+=v;
+          grandTotal+=v;
+          let cls='';
+          if(v>0&&v<3)cls='l1';
+          else if(v>=3&&v<6)cls='l2';
+          else if(v>=6&&v<10)cls='l3';
+          else if(v>=10)cls='l4';
+          html+='<div class="hm-cell '+cls+'" title="'+day+' '+String(h).padStart(2,'0')+':00 · '+v+' 次"></div>';
         }
-      }
-      if (target <= 0) {
-        target = topWrap.getBoundingClientRect().height;
-      }
-      if (target > 0) historyWrap.style.maxHeight = `${Math.round(target)}px`;
-    }
-
-    function applyTheme(theme) {
-      document.body.setAttribute('data-theme', theme);
-      document.getElementById('themeLabel').textContent = theme === 'dark' ? '深色' : '浅色';
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const saved = localStorage.getItem('fnmedia_theme');
-      const preferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      applyTheme(saved || preferred);
-      document.getElementById('themeToggle').addEventListener('click', () => {
-        const current = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-        const next = current === 'dark' ? 'light' : 'dark';
-        applyTheme(next);
-        localStorage.setItem('fnmedia_theme', next);
       });
-      refreshAll(true);
-      setInterval(() => refreshAll(false), 30000);
-      window.addEventListener('resize', syncHistoryHeight);
+      wrap.innerHTML=html;
+      let hh='<div></div>';
+      for(let h=0;h<24;h++){ hh+='<span>'+(h%6===0?String(h).padStart(2,'0'):'' )+'</span>'; }
+      hoursWrap.innerHTML=hh;
+      // Summary stats
+      const peakHour=hourTotals.indexOf(Math.max(...hourTotals));
+      const peakCount=hourTotals[peakHour];
+      const bestDayIdx=dayTotals.indexOf(Math.max(...dayTotals));
+      const bestDayCount=dayTotals[bestDayIdx];
+      document.getElementById('heatTotal').textContent=grandTotal.toLocaleString('zh-CN');
+      document.getElementById('heatPeak').textContent=peakCount>0?(String(peakHour).padStart(2,'0')+':00 - '+String(peakHour+1).padStart(2,'0')+':00'):'无数据';
+      document.getElementById('heatPeakCount').textContent=peakCount>0?('共 '+peakCount+' 次活动'):'本周无记录';
+      document.getElementById('heatBestDay').textContent=bestDayCount>0?days[bestDayIdx]:'无数据';
+      document.getElementById('heatBestDayCount').textContent=bestDayCount>0?('共 '+bestDayCount+' 次活动'):'本周无记录';
+    }
+
+    /* ===== PageCarousel: damped wheel pagination ===== */
+    const PAGE_SIZE=4;
+    const carouselStates={};
+    function initCarousel(carouselId, itemsHtml, pageSize){
+      const track=document.getElementById(carouselId.replace('Carousel','Track'));
+      const dotsWrap=document.getElementById(carouselId.replace('Carousel','Dots'));
+      if(!track||!dotsWrap)return;
+      const total=itemsHtml.length;
+      if(!total){
+        track.innerHTML='<div class="carousel-page"><div class="records-empty">暂无数据</div></div>';
+        dotsWrap.innerHTML='';
+        return;
+      }
+      const pages=Math.ceil(total/pageSize);
+      let pageHtml='';
+      for(let p=0;p<pages;p++){
+        pageHtml+='<div class="carousel-page">';
+        const start=p*pageSize;
+        for(let i=start;i<Math.min(start+pageSize,total);i++){ pageHtml+=itemsHtml[i]; }
+        pageHtml+='</div>';
+      }
+      track.innerHTML=pageHtml;
+      let dotHtml='';
+      for(let p=0;p<pages;p++){
+        dotHtml+='<button class="carousel-dot'+(p===0?' active':'')+'" data-page="'+p+'" aria-label="第 '+(p+1)+' 页"></button>';
+      }
+      dotsWrap.innerHTML=dotHtml;
+      carouselStates[carouselId]={page:0,pageSize:pageSize,totalPages:pages,lock:false};
+      track.style.transform='translateY(0)';
+      const vp=track.parentElement;
+      // Viewport height is fixed via CSS (300px) - no dynamic sizing needed
+      dotsWrap.querySelectorAll('.carousel-dot').forEach(dot=>{
+        dot.onclick=()=>{ const p=parseInt(dot.dataset.page,10); goToCarouselPage(carouselId,p); };
+      });
+      const carouselEl=document.getElementById(carouselId);
+      if(carouselEl){
+        carouselEl.querySelectorAll('.carousel-arrow').forEach(btn=>{
+          btn.onclick=()=>{
+            const st=carouselStates[carouselId];
+            if(!st||st.lock)return;
+            const dir=parseInt(btn.dataset.dir,10);
+            const next=Math.max(0,Math.min(st.totalPages-1,st.page+dir));
+            goToCarouselPage(carouselId,next);
+          };
+        });
+        updateArrows(carouselId,pages);
+      }
+      vp.onwheel=(e)=>{
+        e.preventDefault();
+        const st=carouselStates[carouselId];
+        if(!st)return;
+        if(st.lock)return;
+        st.lock=true;
+        setTimeout(()=>{st.lock=false;},350);
+        if(e.deltaY>0)goToCarouselPage(carouselId,Math.min(st.page+1,st.totalPages-1));
+        else goToCarouselPage(carouselId,Math.max(st.page-1,0));
+      };
+    }
+    function updateArrows(carouselId,totalPages){
+      const carouselEl=document.getElementById(carouselId);
+      if(!carouselEl)return;
+      const st=carouselStates[carouselId];
+      const arrows=carouselEl.querySelectorAll('.carousel-arrow');
+      if(totalPages<=1){ arrows.forEach(a=>a.style.display='none'); return; }
+      arrows.forEach(a=>{
+        a.style.display='';
+        const dir=parseInt(a.dataset.dir,10);
+        if(st){ a.disabled=(dir<0?st.page===0:st.page===totalPages-1); }
+      });
+    }
+    function goToCarouselPage(carouselId,page){
+      const st=carouselStates[carouselId];
+      if(!st||page===st.page||page<0||page>=st.totalPages)return;
+      st.page=page;
+      const track=document.getElementById(carouselId.replace('Carousel','Track'));
+      const dotsWrap=document.getElementById(carouselId.replace('Carousel','Dots'));
+      if(!track)return;
+      const pageEls=track.querySelectorAll('.carousel-page');
+      const pageEl=pageEls[page];
+      if(!pageEl)return;
+      track.style.transform='translateY(-'+pageEl.offsetTop+'px)';
+      // Viewport height is fixed - no dynamic resize
+      if(dotsWrap){
+        dotsWrap.querySelectorAll('.carousel-dot').forEach((d,i)=>{ d.classList.toggle('active',i===page); });
+      }
+      updateArrows(carouselId,st.totalPages);
+    }
+
+    function initMap(locs){
+      const wrap=document.getElementById('mapWrap'),empty=document.getElementById('mapEmpty');
+      if(!locs.length){wrap.style.display='none';empty.style.display='flex';document.getElementById('mapCount').textContent='0';return;}
+      wrap.style.display='block';empty.style.display='none';document.getElementById('mapCount').textContent=locs.length;
+      const dark=document.body.getAttribute('data-theme')!=='light';
+      const url=dark?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      if(!leafletMap){leafletMap=L.map(wrap,{scrollWheelZoom:false,attributionControl:false});leafletMap.setView([30,110],2);tileLayer=L.tileLayer(url,{maxZoom:18}).addTo(leafletMap);}
+      else{if(tileLayer)leafletMap.removeLayer(tileLayer);tileLayer=L.tileLayer(url,{maxZoom:18}).addTo(leafletMap);}
+      mapMarkers.forEach(m=>leafletMap.removeLayer(m));mapMarkers=[];
+      locs.forEach(l=>{const r=5+Math.sqrt(l.count)*3;const m=L.circleMarker([l.lat,l.lon],{radius:r,color:'#8b5cf6',weight:2,fillColor:'#8b5cf6',fillOpacity:0.4}).addTo(leafletMap);m.bindPopup('<b>'+esc(l.city)+'</b><br>'+l.count+' 次访问');mapMarkers.push(m);});
+      setTimeout(()=>leafletMap.invalidateSize(),200);
+    }
+
+    function syncMapTheme(){
+      if(!leafletMap||!tileLayer)return;
+      const dark=document.body.getAttribute('data-theme')!=='light';
+      const url=dark?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      leafletMap.removeLayer(tileLayer);
+      tileLayer=L.tileLayer(url,{maxZoom:18}).addTo(leafletMap);
+    }
+
+    function updateRing(active,total){
+      const pct=total>0?Math.round(active/total*100):0;
+      const circumference=2*Math.PI*54;
+      const offset=circumference*(1-pct/100);
+      const ringFg=document.getElementById('ringFg');
+      ringFg.style.strokeDashoffset=offset;
+      const ringVal=document.getElementById('ringVal');
+      const t0=performance.now();
+      (function step(now){
+        const t=Math.min(1,(now-t0)/1200);
+        const e=1-Math.pow(1-t,4);
+        ringVal.textContent=Math.round(pct*e)+'%';
+        if(t<1)requestAnimationFrame(step);
+      })(t0);
+      document.getElementById('rsTotal').textContent=total;
+      document.getElementById('rsActive').textContent=active;
+    }
+
+    async function loadStats(nc){
+      const r=await fetch('/api/stats'+(nc?'?nocache=1':''));const d=await r.json();
+      countUp(document.getElementById('totalUsers'),d.total_users||0);
+      countUp(document.getElementById('activeUsers'),d.active_users||0);
+      countUp(document.getElementById('todayPlays'),d.today_plays||0);
+      countUp(document.getElementById('todayWatchTime'),d.today_watch_time||0);
+      updateRing(d.active_users||0,d.total_users||0);
+      if(d.type_distribution)initDoughnut(d.type_distribution);
+      if(d.top_content&&d.top_content.length)initTopContentChart(d.top_content.slice(0,8));
+      if(d.top_users&&d.top_users.length){
+        const mx=d.top_users[0].count||1;
+        document.getElementById('topUsers').innerHTML=d.top_users.map((u,i)=>{
+          const crown=i===0?'<svg class="rank-crown" viewBox="0 0 24 24" fill="none"><path d="M3 18h18M5 18l-1-9 5 4 3-6 3 6 5-4-1 9M5 18l-1-9c0-.55.45-1 1-1s1 .45 1 1M19 18l1-9c0-.55-.45-1-1-1s-1 .45-1 1" fill="#fbbf24" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/><circle cx="5" cy="8" r="1.5" fill="#fde68a" stroke="#fff" stroke-width="0.6"/><circle cx="12" cy="5" r="1.5" fill="#fde68a" stroke="#fff" stroke-width="0.6"/><circle cx="19" cy="8" r="1.5" fill="#fde68a" stroke="#fff" stroke-width="0.6"/></svg>':'';
+          return '<div class="rank-row" style="--w:'+((u.count/mx).toFixed(2))+'"><div class="rank-bar"></div><div class="rank-no">'+crown+String(i+1).padStart(2,'0')+'</div><div class="rank-name" title="'+esc(u.user)+'">'+esc(u.user)+'</div><div class="rank-count">'+u.count+'</div></div>';
+        }).join('');
+        requestAnimationFrame(()=>document.querySelectorAll('#topUsers .rank-row').forEach(r=>r.classList.add('in')));
+      }else document.getElementById('topUsers').innerHTML='<div class="empty"><div class="txt">暂无数据</div></div>';
+      const hr=await fetch('/api/hourly'+(nc?'?nocache=1':''));const hd=await hr.json();
+      initHourlyChart(hd);
+      makeSpark('sparkUsers',hd,'#a78bfa');
+      makeSpark('sparkActive',hd,'#22d3ee');
+      makeSpark('sparkPlays',hd,'#f472b6');
+      makeSpark('sparkTime',hd,'#34d399');
+      const weekData=[];
+      for(let i=0;i<7;i++){weekData.push(hd);}
+      initHeatmap(weekData);
+      const durBins=[{label:'<30m',value:0},{'label':'30-60m',value:0},{'label':'1-2h',value:0},{'label':'2-4h',value:0},{'label':'>4h',value:0}];
+      hd.forEach(v=>{if(v<2)durBins[0].value++;else if(v<4)durBins[1].value++;else if(v<8)durBins[2].value++;else if(v<16)durBins[3].value++;else durBins[4].value++;});
+      initDurationChart(durBins);
+    }
+
+    async function loadCurrent(nc){
+      const el=document.getElementById('currentPlaying');showSkeleton(el,2);
+      const r=await fetch('/api/current'+(nc?'?nocache=1':''));const d=await r.json();
+      if(!d.length){el.innerHTML='<div class="empty"><div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="8 21 16 21 12 17 8 21"/></svg></div><div class="txt">暂无用户正在观看</div></div>';return;}
+      el.innerHTML=d.map((x,i)=>'<div class="list-item"><div class="avatar c'+((i%4)+1)+'">'+esc(x.user).slice(0,1)+'</div><div class="list-item-main"><div class="list-item-title">'+esc(x.title)+'</div><div class="list-item-meta">'+esc(x.user)+' · '+esc(x.type||'未知')+'</div><div class="progress-line"><span style="width:'+Math.min(100,x.progress||0)+'%"></span></div></div><div class="list-item-side"><div class="list-item-meta" style="font-family:var(--mono);"><b style="color:var(--ink);">'+Math.round(x.progress||0)+'%</b></div><div class="list-item-meta">'+esc(x.position)+'/'+esc(x.duration)+'</div></div></div>').join('');
+    }
+
+    async function loadHistory(nc){
+      const r=await fetch('/api/history?limit=20'+(nc?'&nocache=1':''));const d=await r.json();
+      document.getElementById('historyCount').textContent=d.length;
+      const el=document.getElementById('historyTimeline');
+      if(!d.length){el.innerHTML='<div class="empty"><div class="txt">暂无观看历史</div></div>';return;}
+      el.innerHTML=d.map(x=>'<div class="tl-item"><div class="tl-title">'+esc(x.title)+'</div><div class="tl-meta">'+esc(x.user)+' · '+esc(x.type||'未知')+' · '+Math.round(x.progress||0)+'%</div><div class="tl-time">'+esc(x.end_time||'—')+'</div></div>').join('');
+    }
+
+    async function loadFavorites(nc){
+      const r=await fetch('/api/favorites'+(nc?'?nocache=1':''));const d=await r.json();
+      document.getElementById('favCount').textContent=d.length;
+      const items=d.map((x,i)=>'<div class="list-item"><div class="avatar c'+((i%4)+1)+'">'+esc(x.title).slice(0,1)+'</div><div class="list-item-main"><div class="list-item-title">'+esc(x.title)+'</div><div class="list-item-meta">'+esc(x.user)+' · '+esc(x.type||'未知')+'</div></div><span class="tag">收藏</span></div>');
+      initCarousel('favCarousel',items,PAGE_SIZE);
+    }
+
+    async function loadDownloads(nc){
+      const r=await fetch('/api/downloads'+(nc?'?nocache=1':''));const d=await r.json();
+      document.getElementById('dlCount').textContent=d.length;
+      const items=d.map((x,i)=>'<div class="list-item"><div class="avatar c'+((i%4)+1)+'">'+esc(x.media_file).slice(0,1)+'</div><div class="list-item-main"><div class="list-item-title">'+esc(x.media_file)+'</div><div class="list-item-meta">'+esc(x.user)+' · '+esc(x.resolution||'默认')+'</div></div><span class="tag">'+esc(x.status||'')+'</span></div>');
+      initCarousel('dlCarousel',items,PAGE_SIZE);
+    }
+
+    function initSystemCarousel(){
+      const items=[
+        '<div class="list-item"><div class="avatar c1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M5 12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2M5 12a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/></svg></div><div class="list-item-main"><div class="list-item-title">数据库连接</div><div class="list-item-meta">trimmedia.db</div></div><span class="tag" style="background:rgba(16,185,129,0.12); color:#34d399; border-color:rgba(16,185,129,0.2)">正常</span></div>',
+        '<div class="list-item"><div class="avatar c2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="list-item-main"><div class="list-item-title">API 服务</div><div class="list-item-meta">8 个端点</div></div><span class="tag" style="background:rgba(16,185,129,0.12); color:#34d399; border-color:rgba(16,185,129,0.2)">运行中</span></div>',
+        '<div class="list-item"><div class="avatar c3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="list-item-main"><div class="list-item-title">自动同步</div><div class="list-item-meta" id="syncStatus">每 30 秒</div></div><span class="tag">30s</span></div>',
+        '<div class="list-item"><div class="avatar c4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg></div><div class="list-item-main"><div class="list-item-title">数据刷新</div><div class="list-item-meta">实时更新中</div></div><span class="tag" style="background:rgba(34,211,238,0.12); color:#22d3ee; border-color:rgba(34,211,238,0.2)">活跃</span></div>'
+      ];
+      initCarousel('sysCarousel',items,PAGE_SIZE);
+    }
+
+    async function loadLogs(nc){
+      const r=await fetch('/api/logs'+(nc?'?nocache=1':''));const d=await r.json();
+      const tb=document.getElementById('logsBody'),em=document.getElementById('logsEmpty');
+      document.getElementById('logCount').textContent=d.length;
+      if(!d.length){tb.innerHTML='';em.style.display='flex';return;}
+      em.style.display='none';
+      tb.innerHTML=d.map(x=>'<tr><td><span class="ellipsis s" style="font-family:var(--mono);" title="'+esc(x.ip)+'">'+esc(x.ip)+'</span></td><td><span class="ellipsis s" title="'+esc(x.city||'')+'">'+esc(x.city||x.region||x.country||'未知')+'</span></td><td><span class="tag">'+esc(x.browser||'')+' · '+esc(x.os||'')+'</span></td><td><span class="ellipsis" title="'+esc(x.path)+'">'+esc(x.path)+'</span></td><td style="color:var(--muted);font-size:11px;white-space:nowrap;font-family:var(--mono);">'+esc(x.time||'')+'</td></tr>').join('');
+    }
+
+    async function loadLocations(nc){
+      const r=await fetch('/api/locations'+(nc?'?nocache=1':''));const d=await r.json();initMap(d);
+    }
+
+    async function refreshAll(nc){
+      const btn=document.getElementById('refreshBtn');
+      btn.querySelector('svg').classList.add('spin');
+      try{
+        await Promise.all([loadStats(nc),loadCurrent(nc),loadHistory(nc),loadFavorites(nc),loadDownloads(nc),loadLogs(nc),loadLocations(nc)]);
+      }catch(e){console.error(e);}finally{setTimeout(()=>btn.querySelector('svg').classList.remove('spin'),400);}
+    }
+
+    async function applyTheme(t){
+      document.body.setAttribute('data-theme',t);
+      const icon=document.getElementById('themeIcon');
+      if(t==='light'){icon.innerHTML='<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';}
+      else{icon.innerHTML='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';}
+      const logo=document.querySelector('.brand-logo-img');
+      if(logo){logo.src=t==='light'?'{{ url_for("static", filename="logo-light.png") }}':'{{ url_for("static", filename="logo.png") }}';}
+      syncMapTheme();
+      if(refreshAll._loaded){await refreshAll(false);}
+    }
+
+    function tickClock(){const n=new Date();document.getElementById('clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+
+    function setupReveal(){
+      const obs=new IntersectionObserver((es)=>{es.forEach((e,i)=>{if(e.isIntersecting){setTimeout(()=>e.target.classList.add('in'),i*60);obs.unobserve(e.target);}});},{threshold:0.05});
+      document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+    }
+
+    document.addEventListener('DOMContentLoaded',()=>{
+      const saved=localStorage.getItem('fnmedia_theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+      document.body.setAttribute('data-theme',saved);
+      const icon=document.getElementById('themeIcon');
+      icon.innerHTML=saved==='light'?'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>':'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      const initLogo=document.querySelector('.brand-logo-img');
+      if(initLogo){initLogo.src=saved==='light'?'{{ url_for("static", filename="logo-light.png") }}':'{{ url_for("static", filename="logo.png") }}';}
+      document.getElementById('themeToggle').onclick=()=>{const cur=document.body.getAttribute('data-theme');const nx=cur==='light'?'dark':'light';applyTheme(nx);localStorage.setItem('fnmedia_theme',nx);};
+      tickClock();setInterval(tickClock,10000);
+      setupReveal();
+      initSystemCarousel();
+      // Sidebar navigation: smooth scroll + active state
+      document.querySelectorAll('.nav-item').forEach(item=>{
+        item.addEventListener('click',e=>{
+          e.preventDefault();
+          const targetId=item.dataset.target;
+          const target=document.getElementById(targetId);
+          if(target){
+            target.scrollIntoView({behavior:'smooth',block:'start'});
+            document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+            item.classList.add('active');
+          }
+        });
+      });
+      // Scroll spy: highlight nav based on scroll position
+      const sections=['sec-core','sec-live','sec-content','sec-detail'];
+      const navItems=document.querySelectorAll('.nav-item');
+      const spyObs=new IntersectionObserver((entries)=>{
+        entries.forEach(en=>{
+          if(en.isIntersecting){
+            const id=en.target.id;
+            navItems.forEach(n=>n.classList.toggle('active',n.dataset.target===id));
+          }
+        });
+      },{rootMargin:'-20% 0px -70% 0px'});
+      sections.forEach(id=>{const el=document.getElementById(id);if(el)spyObs.observe(el);});
+      refreshAll(true).then(()=>{refreshAll._loaded=true;});
+      setInterval(()=>refreshAll(false),30000);
     });
   </script>
 </body>
