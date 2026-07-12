@@ -1191,6 +1191,7 @@
       document.getElementById('themeToggle').onclick=()=>{const cur=document.body.getAttribute('data-theme');const nx=cur==='light'?'dark':'light';applyTheme(nx);localStorage.setItem('fnmedia_theme',nx);};
       tickClock();setInterval(tickClock,10000);
       setupReveal();
+      document.getElementById('refreshBtn').onclick=()=>refreshAll(true);
       initSystemCarousel();
       // Sidebar navigation: smooth scroll + active state
       document.querySelectorAll('.nav-item').forEach(item=>{
