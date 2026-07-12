@@ -52,7 +52,7 @@ sudo docker run -d \
   -v /vol3/1000/docker/fnmedia-monitor/logs:/app/logs \
   --memory=200m \
   --cpus=0.5 \
-  deepvoce/fnmedia-monitor:v2.1
+  deepvoce/fnmedia-monitor:v2.0
 ```
 
 ### 4. 访问监控面板
