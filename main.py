@@ -616,6 +616,33 @@ def api_history():
 def api_hourly():
     return jsonify(get_hourly_stats())
 
+@app.route('/api/heatmap')
+def api_heatmap():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify([[0]*24 for _ in range(7)])
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT
+            CAST(strftime('%w', datetime(create_time / 1000, 'unixepoch')) AS INTEGER) as dow,
+            CAST(strftime('%H', datetime(create_time / 1000, 'unixepoch')) AS INTEGER) as hour,
+            COUNT(*) as count
+        FROM item_user_play
+        WHERE visible = 1 AND update_time >= ?
+        GROUP BY dow, hour
+    """, (now_ms() - 7 * 24 * 3600 * 1000,))
+    # SQLite %w: 0=Sunday ... 6=Saturday. Convert to Monday-first (0=Monday ... 6=Sunday)
+    matrix = [[0]*24 for _ in range(7)]
+    for row in cursor.fetchall():
+        sqlite_dow = row['dow']
+        # Convert Sunday=0 to Monday-first index: Sun(0)->6, Mon(1)->0, Tue(2)->1, ..., Sat(6)->5
+        monday_first = (sqlite_dow - 1) % 7 if sqlite_dow is not None else 0
+        hour = row['hour']
+        if hour is not None and 0 <= hour < 24:
+            matrix[monday_first][hour] = row['count']
+    conn.close()
+    return jsonify(matrix)
+
 @app.route('/api/users')
 def api_users():
     conn = get_db_connection()

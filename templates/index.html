@@ -256,8 +256,10 @@
     .stat-spark { margin-top: 12px; height: 32px; position: relative; z-index: 1; }
 
     /* ---------- Live badge ---------- */
-    .live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); font-family: var(--mono); font-size: 10px; font-weight: 700; color: #f87171; letter-spacing: 0.08em; }
+    .live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); font-family: var(--mono); font-size: 10px; font-weight: 700; color: #f87171; letter-spacing: 0.08em; transition: all 300ms ease; }
     .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: pulse 1.4s ease-in-out infinite; }
+    .live.active { background: rgba(16,185,129,0.14); border-color: rgba(16,185,129,0.3); color: #34d399; }
+    .live.active::before { background: #10b981; box-shadow: 0 0 8px #10b981; }
 
     /* ---------- Empty state ---------- */
     .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 12px; color: var(--muted-2); min-height: 160px; text-align: center; }
@@ -637,7 +639,7 @@
                 <span class="card-eyebrow">LIVE ACTIVITY</span>
                 <span class="card-title">正在观看</span>
               </div>
-              <span class="live">LIVE</span>
+              <span class="live" id="liveBadge">LIVE</span>
             </div>
             <div class="card-body scroll" style="max-height:320px;">
               <div id="currentPlaying" class="list"></div>
@@ -1095,9 +1097,9 @@
       makeSpark('sparkActive',hd,'#22d3ee');
       makeSpark('sparkPlays',hd,'#f472b6');
       makeSpark('sparkTime',hd,'#34d399');
-      const weekData=[];
-      for(let i=0;i<7;i++){weekData.push(hd);}
-      initHeatmap(weekData);
+      const hmRes=await fetch('/api/heatmap'+(nc?'?nocache=1':''));
+      const hmData=await hmRes.json();
+      initHeatmap(hmData);
       const durBins=[{label:'<30m',value:0},{'label':'30-60m',value:0},{'label':'1-2h',value:0},{'label':'2-4h',value:0},{'label':'>4h',value:0}];
       hd.forEach(v=>{if(v<2)durBins[0].value++;else if(v<4)durBins[1].value++;else if(v<8)durBins[2].value++;else if(v<16)durBins[3].value++;else durBins[4].value++;});
       initDurationChart(durBins);
@@ -1105,7 +1107,9 @@
 
     async function loadCurrent(nc){
       const el=document.getElementById('currentPlaying');showSkeleton(el,2);
+      const liveBadge=document.getElementById('liveBadge');
       const r=await fetch('/api/current'+(nc?'?nocache=1':''));const d=await r.json();
+      if(liveBadge){liveBadge.classList.toggle('active',d.length>0);liveBadge.textContent=d.length>0?('LIVE · '+d.length):'OFFLINE';}
       if(!d.length){el.innerHTML='<div class="empty"><div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="8 21 16 21 12 17 8 21"/></svg></div><div class="txt">暂无用户正在观看</div></div>';return;}
       el.innerHTML=d.map((x,i)=>'<div class="list-item"><div class="avatar c'+((i%4)+1)+'">'+esc(x.user).slice(0,1)+'</div><div class="list-item-main"><div class="list-item-title">'+esc(x.title)+'</div><div class="list-item-meta">'+esc(x.user)+' · '+esc(x.type||'未知')+'</div><div class="progress-line"><span style="width:'+Math.min(100,x.progress||0)+'%"></span></div></div><div class="list-item-side"><div class="list-item-meta" style="font-family:var(--mono);"><b style="color:var(--ink);">'+Math.round(x.progress||0)+'%</b></div><div class="list-item-meta">'+esc(x.position)+'/'+esc(x.duration)+'</div></div></div>').join('');
     }
