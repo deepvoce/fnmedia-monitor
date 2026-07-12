@@ -10,11 +10,14 @@ services:
     environment:
       - FNMEDIA_DB_PATH=/app/database/trimmedia.db
       - LOG_PATH=/app/logs
+      - LOG_ENABLED=1
       - DB_COPY_TTL=60
-      - LOG_ENABLED=0
+      - CACHE_TTL=30
       - TZ=Asia/Shanghai
     volumes:
       # 只读挂载数据库目录（避免容器内写入）
       - /usr/local/apps/@appdata/trim.media/database:/app/database:ro
+      # 访问日志目录（需要反向代理写入）
+      - ./logs:/app/logs
     mem_limit: 200m
     cpus: 0.5
