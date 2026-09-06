@@ -4,12 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>飞牛影视监控 · V2</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}" />
+  <meta name="theme-color" content="#07070c" />
+  <style>
+    /* 本地字体（Inter / JetBrains Mono 拉丁子集，中文回退系统字体）——部署环境无需访问外网 */
+    @font-face { font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap; src:url('{{ url_for("static", filename="fonts/inter-400.woff2") }}') format('woff2'); }
+    @font-face { font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap; src:url('{{ url_for("static", filename="fonts/inter-500.woff2") }}') format('woff2'); }
+    @font-face { font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap; src:url('{{ url_for("static", filename="fonts/inter-600.woff2") }}') format('woff2'); }
+    @font-face { font-family:'Inter'; font-style:normal; font-weight:700; font-display:swap; src:url('{{ url_for("static", filename="fonts/inter-700.woff2") }}') format('woff2'); }
+    @font-face { font-family:'Inter'; font-style:normal; font-weight:800; font-display:swap; src:url('{{ url_for("static", filename="fonts/inter-800.woff2") }}') format('woff2'); }
+    @font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:400; font-display:swap; src:url('{{ url_for("static", filename="fonts/jbmono-400.woff2") }}') format('woff2'); }
+    @font-face { font-family:'JetBrains Mono'; font-style:normal; font-weight:600; font-display:swap; src:url('{{ url_for("static", filename="fonts/jbmono-600.woff2") }}') format('woff2'); }
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}" />
+  <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/leaflet.js') }}"></script>
   <style>
     :root {
       --bg: #07070c;
@@ -404,6 +413,24 @@
     @media (max-width: 1200px) { .row-stats { grid-template-columns: repeat(2, 1fr); } .row-main, .row-lower, .row-split, .row-heat { grid-template-columns: 1fr; } }
     @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .main { margin-left: 0; } .hero { margin: 16px 16px 0; padding: 24px; } .hero-title { font-size: 24px; } .content { padding: 16px 16px 40px; } .row-stats { grid-template-columns: 1fr; } .topbar { padding: 0 16px; } .crumb { display: none; } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+    /* ---------- v2.1 polish ---------- */
+    .menu-btn { display: none; }
+    .scrim { position: fixed; inset: 0; z-index: 99; background: rgba(4,4,10,0.55); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity 300ms ease; }
+    .scrim.show { opacity: 1; pointer-events: auto; }
+    @media (max-width: 768px) {
+      .menu-btn { display: inline-flex; }
+      .sidebar.open { transform: translateX(0); box-shadow: 24px 0 60px rgba(0,0,0,0.5); }
+    }
+    .table .tag { white-space: nowrap; }
+    .hero-badge.live { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); color: #34d399; }
+    .leaflet-container { background: var(--bg-2); }
+    .leaflet-control-attribution { background: rgba(10,11,20,0.55) !important; color: var(--muted) !important; font: 9px/1.6 var(--mono) !important; padding: 0 6px; border-radius: 6px 0 0 0; }
+    .leaflet-control-attribution a { color: var(--ink-2) !important; }
+    [data-theme="light"] .leaflet-control-attribution { background: rgba(255,255,255,0.7) !important; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--glass-border-hover); border-radius: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
   </style>
 </head>
 <body>
@@ -447,7 +474,7 @@
       </nav>
       <div class="sidebar-foot">
         <span class="status-pill"><span class="status-dot"></span>系统运行中</span>
-        <div style="margin-top:8px; opacity:0.6; font-family: var(--mono);">SYNC · 30s</div>
+        <div style="margin-top:8px; opacity:0.6; font-family: var(--mono);">SYNC · {{ refresh_interval }}s</div>
       </div>
     </aside>
 
@@ -459,6 +486,9 @@
           <div class="topbar-title">概览</div>
         </div>
         <div class="topbar-actions">
+          <button class="icon-btn menu-btn" title="菜单" id="menuBtn">
+            <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
           <span class="clock" id="clock">--:--</span>
           <button class="icon-btn" title="切换主题" id="themeToggle">
             <svg viewBox="0 0 24 24" id="themeIcon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -478,7 +508,7 @@
             <h1 class="hero-title">今天，想看点什么？</h1>
             <p class="hero-sub">这里记录着每一次播放、收藏与下载的动态。实时同步你的飞牛 NAS 影视库。</p>
           </div>
-          <div class="hero-badge"><span class="dot"></span>实时 · 30s</div>
+          <div class="hero-badge" id="heroBadge"><span class="dot"></span><span id="heroBadgeText">实时 · {{ refresh_interval }}s</span></div>
         </div>
       </div>
 
@@ -823,9 +853,10 @@
         </div>
       </main>
 
-      <footer class="footer">FNMEDIA MONITOR · DATA REFRESHES EVERY 30 SECONDS · V2.0</footer>
+      <footer class="footer">FNMEDIA MONITOR · DATA REFRESHES EVERY {{ refresh_interval }} SECONDS · {{ version|upper }}</footer>
     </div>
   </div>
+  <div class="scrim" id="scrim"></div>
 
   <script>
     let hourlyChart=null, typeChart=null, topContentChart=null, durationChart=null, leafletMap=null, tileLayer=null, mapMarkers=[];
@@ -862,50 +893,56 @@
     function makeSpark(id,data,color){
       const ctx=document.getElementById(id);
       if(!ctx)return;
-      if(sparkCharts[id])sparkCharts[id].destroy();
+      if(sparkCharts[id]){ sparkCharts[id].data.datasets[0].data=data; sparkCharts[id].update('none'); return; }
       const g=ctx.getContext('2d').createLinearGradient(0,0,0,32);
       g.addColorStop(0,color+'66'); g.addColorStop(1,color+'00');
       sparkCharts[id]=new Chart(ctx,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,backgroundColor:g,borderWidth:2,fill:true,tension:0.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:800},plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}});
     }
 
+    function destroyCharts(){
+      [hourlyChart,typeChart,topContentChart,durationChart].forEach(c=>{ if(c)c.destroy(); });
+      hourlyChart=typeChart=topContentChart=durationChart=null;
+      Object.keys(sparkCharts).forEach(k=>{ sparkCharts[k].destroy(); delete sparkCharts[k]; });
+    }
+
     function initHourlyChart(data){
+      if(hourlyChart){ hourlyChart.data.datasets[0].data=data; hourlyChart.update('none'); return; }
       const ctx=document.getElementById('hourlyChart').getContext('2d');
       const c=chartColors();
-      if(hourlyChart)hourlyChart.destroy();
       const g=ctx.createLinearGradient(0,0,0,320);
       g.addColorStop(0,c.accent+'cc'); g.addColorStop(0.5,c.accent2+'66'); g.addColorStop(1,'rgba(6,182,212,0.05)');
       hourlyChart=new Chart(ctx,{type:'line',data:{labels:Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00'),datasets:[{data,borderColor:c.accent,backgroundColor:g,borderWidth:3,fill:true,tension:0.4,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:c.accent,pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1200,easing:'easeOutQuart'},interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',titleColor:'#fff',bodyColor:'#c5cad6',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,displayColors:false,callbacks:{label:(ctx)=>'播放 '+ctx.parsed.y+' 次'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},y:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true}}}});
     }
 
     function initDoughnut(td){
-      const ctx=document.getElementById('typeChart').getContext('2d');
-      if(typeChart)typeChart.destroy();
       const c=chartColors();
       const labels=td.map(d=>d.type||'未知');
       const data=td.map(d=>d.count);
-      const total=data.reduce((a,b)=>a+b,0);
       const colors=['#8b5cf6','#06b6d4','#ec4899','#f59e0b','#10b981','#a78bfa','#22d3ee','#f472b6'];
-      typeChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:labels.map((_,i)=>colors[i%colors.length]),borderColor:'transparent',borderWidth:2,hoverOffset:12}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',animation:{duration:1200,animateRotate:true,animateScale:true},plugins:{legend:{position:'right',labels:{color:c.tick,font:{size:11},boxWidth:10,padding:12,usePointStyle:true}},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,callbacks:{label:(ctx)=>' '+ctx.label+': '+ctx.parsed+' ('+Math.round(ctx.parsed/total*100)+'%)'}}}},plugins:[{id:'center',afterDraw(ch){const{ctx,chartArea:{left,right,top,bottom}}=ch;const x=(left+right)/2,y=(top+bottom)/2;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#a78bfa';ctx.font='800 26px Inter';ctx.fillText(total,x,y-6);ctx.fillStyle=c.tick;ctx.font='500 10px JetBrains Mono';ctx.fillText('TOTAL',x,y+14);ctx.restore();}}]});
+      if(typeChart){ typeChart.data.labels=labels; typeChart.data.datasets[0].data=data; typeChart.data.datasets[0].backgroundColor=labels.map((_,i)=>colors[i%colors.length]); typeChart.update(); return; }
+      const ctx=document.getElementById('typeChart').getContext('2d');
+      typeChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:labels.map((_,i)=>colors[i%colors.length]),borderColor:'transparent',borderWidth:2,hoverOffset:12}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',animation:{duration:1200,animateRotate:true,animateScale:true},plugins:{legend:{position:'right',labels:{color:c.tick,font:{size:11},boxWidth:10,padding:12,usePointStyle:true}},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,callbacks:{label:(ctx)=>{const total=ctx.dataset.data.reduce((a,b)=>a+b,0);return ' '+ctx.label+': '+ctx.parsed+' ('+Math.round(ctx.parsed/total*100)+'%)';}}}}},plugins:[{id:'center',afterDraw(ch){const total=ch.data.datasets[0].data.reduce((a,b)=>a+b,0);const{ctx,chartArea:{left,right,top,bottom}}=ch;const x=(left+right)/2,y=(top+bottom)/2;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#a78bfa';ctx.font='800 26px Inter';ctx.fillText(total,x,y-6);ctx.fillStyle=chartColors().tick;ctx.font='500 10px JetBrains Mono';ctx.fillText('TOTAL',x,y+14);ctx.restore();}}]});
     }
 
     function initTopContentChart(items){
-      const ctx=document.getElementById('topContentChart').getContext('2d');
       const c=chartColors();
-      if(topContentChart)topContentChart.destroy();
       const labels=items.map(x=>x.title||'未知');
       const data=items.map(x=>x.count);
+      if(topContentChart){ topContentChart.data.labels=labels; topContentChart.data.datasets[0].data=data; topContentChart.update(); return; }
+      const ctx=document.getElementById('topContentChart').getContext('2d');
       const g=ctx.createLinearGradient(0,0,400,0);
       g.addColorStop(0,c.accent); g.addColorStop(1,c.accent2);
-      topContentChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data,backgroundColor:g,borderRadius:8,borderSkipped:false,barPercentage:0.6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:1000,easing:'easeOutQuart'},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,callbacks:{label:(ctx)=>' 播放 '+ctx.parsed.x+' 次'}}},scales:{x:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:11}}}}}});
+      topContentChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data,backgroundColor:g,borderRadius:8,borderSkipped:false,barPercentage:0.6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:1000,easing:'easeOutQuart'},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(139,92,246,0.3)',borderWidth:1,cornerRadius:10,padding:12,callbacks:{label:(ctx)=>' 播放 '+ctx.parsed.x+' 次'}}},scales:{x:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true},y:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:11},callback(v){const s=this.getLabelForValue(v);return s.length>12?s.slice(0,12)+'…':s;}}}}}});
     }
 
-    function initDurationChart(data){
-      const ctx=document.getElementById('durationChart').getContext('2d');
+    function initDurationChart(dist){
       const c=chartColors();
-      if(durationChart)durationChart.destroy();
+      const labels=dist.map(d=>d.label), data=dist.map(d=>d.value);
+      if(durationChart){ durationChart.data.labels=labels; durationChart.data.datasets[0].data=data; durationChart.update(); return; }
+      const ctx=document.getElementById('durationChart').getContext('2d');
       const g=ctx.createLinearGradient(0,0,0,280);
       g.addColorStop(0,c.accent3+'cc'); g.addColorStop(1,c.accent+'33');
-      durationChart=new Chart(ctx,{type:'bar',data:{labels:data.map(d=>d.label),datasets:[{data:data.map(d=>d.value),backgroundColor:g,borderRadius:8,borderSkipped:false,barPercentage:0.7}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1000},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(236,72,153,0.3)',borderWidth:1,cornerRadius:10,padding:12,displayColors:false,callbacks:{label:(ctx)=>' '+ctx.parsed.y+' 次'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:10}}},y:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true}}}});
+      durationChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data,backgroundColor:g,borderRadius:8,borderSkipped:false,barPercentage:0.7}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:1000},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,11,20,0.95)',borderColor:'rgba(236,72,153,0.3)',borderWidth:1,cornerRadius:10,padding:12,displayColors:false,callbacks:{label:(ctx)=>' '+ctx.parsed.y+' 次'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{color:c.tick,font:{size:10}}},y:{grid:{color:c.grid},border:{display:false},ticks:{color:c.tick,font:{size:10}},beginAtZero:true}}}});
     }
 
     function initHeatmap(hourlyData){
@@ -1035,14 +1072,27 @@
       updateArrows(carouselId,st.totalPages);
     }
 
+    const MAP_TILES={
+      dark:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      light:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+    };
+    const MAP_ATTR='Tiles © Esri — Source: Esri, HERE, Garmin, USGS, NGA';
+
     function initMap(locs){
       const wrap=document.getElementById('mapWrap'),empty=document.getElementById('mapEmpty');
       if(!locs.length){wrap.style.display='none';empty.style.display='flex';document.getElementById('mapCount').textContent='0';return;}
       wrap.style.display='block';empty.style.display='none';document.getElementById('mapCount').textContent=locs.length;
       const dark=document.body.getAttribute('data-theme')!=='light';
-      const url=dark?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-      if(!leafletMap){leafletMap=L.map(wrap,{scrollWheelZoom:false,attributionControl:false});leafletMap.setView([30,110],2);tileLayer=L.tileLayer(url,{maxZoom:18}).addTo(leafletMap);}
-      else{if(tileLayer)leafletMap.removeLayer(tileLayer);tileLayer=L.tileLayer(url,{maxZoom:18}).addTo(leafletMap);}
+      const url=dark?MAP_TILES.dark:MAP_TILES.light;
+      if(!leafletMap){
+        leafletMap=L.map(wrap,{scrollWheelZoom:false});
+        leafletMap.attributionControl.setPrefix(false);
+        leafletMap.setView([30,110],2);
+        tileLayer=L.tileLayer(url,{maxZoom:16,attribution:MAP_ATTR}).addTo(leafletMap);
+      }else{
+        if(tileLayer)leafletMap.removeLayer(tileLayer);
+        tileLayer=L.tileLayer(url,{maxZoom:16,attribution:MAP_ATTR}).addTo(leafletMap);
+      }
       mapMarkers.forEach(m=>leafletMap.removeLayer(m));mapMarkers=[];
       locs.forEach(l=>{const r=5+Math.sqrt(l.count)*3;const m=L.circleMarker([l.lat,l.lon],{radius:r,color:'#8b5cf6',weight:2,fillColor:'#8b5cf6',fillOpacity:0.4}).addTo(leafletMap);m.bindPopup('<b>'+esc(l.city)+'</b><br>'+l.count+' 次访问');mapMarkers.push(m);});
       setTimeout(()=>leafletMap.invalidateSize(),200);
@@ -1051,9 +1101,9 @@
     function syncMapTheme(){
       if(!leafletMap||!tileLayer)return;
       const dark=document.body.getAttribute('data-theme')!=='light';
-      const url=dark?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      const url=dark?MAP_TILES.dark:MAP_TILES.light;
       leafletMap.removeLayer(tileLayer);
-      tileLayer=L.tileLayer(url,{maxZoom:18}).addTo(leafletMap);
+      tileLayer=L.tileLayer(url,{maxZoom:16,attribution:MAP_ATTR}).addTo(leafletMap);
     }
 
     function updateRing(active,total){
@@ -1075,7 +1125,12 @@
     }
 
     async function loadStats(nc){
-      const r=await fetch('/api/stats'+(nc?'?nocache=1':''));const d=await r.json();
+      const [sr,hr,hmr]=await Promise.all([
+        fetch('/api/stats'+(nc?'?nocache=1':'')),
+        fetch('/api/hourly'+(nc?'?nocache=1':'')),
+        fetch('/api/heatmap'+(nc?'?nocache=1':''))
+      ]);
+      const d=await sr.json();const hd=await hr.json();const hmData=await hmr.json();
       countUp(document.getElementById('totalUsers'),d.total_users||0);
       countUp(document.getElementById('activeUsers'),d.active_users||0);
       countUp(document.getElementById('todayPlays'),d.today_plays||0);
@@ -1091,25 +1146,28 @@
         }).join('');
         requestAnimationFrame(()=>document.querySelectorAll('#topUsers .rank-row').forEach(r=>r.classList.add('in')));
       }else document.getElementById('topUsers').innerHTML='<div class="empty"><div class="txt">暂无数据</div></div>';
-      const hr=await fetch('/api/hourly'+(nc?'?nocache=1':''));const hd=await hr.json();
       initHourlyChart(hd);
-      makeSpark('sparkUsers',hd,'#a78bfa');
-      makeSpark('sparkActive',hd,'#22d3ee');
-      makeSpark('sparkPlays',hd,'#f472b6');
-      makeSpark('sparkTime',hd,'#34d399');
-      const hmRes=await fetch('/api/heatmap'+(nc?'?nocache=1':''));
-      const hmData=await hmRes.json();
       initHeatmap(hmData);
-      const durBins=[{label:'<30m',value:0},{'label':'30-60m',value:0},{'label':'1-2h',value:0},{'label':'2-4h',value:0},{'label':'>4h',value:0}];
-      hd.forEach(v=>{if(v<2)durBins[0].value++;else if(v<4)durBins[1].value++;else if(v<8)durBins[2].value++;else if(v<16)durBins[3].value++;else durBins[4].value++;});
-      initDurationChart(durBins);
+      // sparkline 使用后端真实趋势：累计用户 / 活跃用户 / 播放次数 / 观看小时（近7天逐日）
+      const trend=d.daily_trend||[];
+      makeSpark('sparkUsers',d.users_trend&&d.users_trend.length?d.users_trend:trend.map(x=>x.active),'#a78bfa');
+      makeSpark('sparkActive',trend.map(x=>x.active),'#22d3ee');
+      makeSpark('sparkPlays',trend.map(x=>x.plays),'#f472b6');
+      makeSpark('sparkTime',trend.map(x=>x.hours),'#34d399');
+      initDurationChart(d.duration_distribution||[]);
     }
 
     async function loadCurrent(nc){
       const el=document.getElementById('currentPlaying');showSkeleton(el,2);
       const liveBadge=document.getElementById('liveBadge');
+      const heroBadge=document.getElementById('heroBadge');
+      const heroBadgeText=document.getElementById('heroBadgeText');
       const r=await fetch('/api/current'+(nc?'?nocache=1':''));const d=await r.json();
       if(liveBadge){liveBadge.classList.toggle('active',d.length>0);liveBadge.textContent=d.length>0?('LIVE · '+d.length):'OFFLINE';}
+      if(heroBadge&&heroBadgeText){
+        heroBadge.classList.toggle('live',d.length>0);
+        heroBadgeText.textContent=d.length>0?(d.length+' 人正在观看'):'实时 · {{ refresh_interval }}s';
+      }
       if(!d.length){el.innerHTML='<div class="empty"><div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="8 21 16 21 12 17 8 21"/></svg></div><div class="txt">暂无用户正在观看</div></div>';return;}
       el.innerHTML=d.map((x,i)=>'<div class="list-item"><div class="avatar c'+((i%4)+1)+'">'+esc(x.user).slice(0,1)+'</div><div class="list-item-main"><div class="list-item-title">'+esc(x.title)+'</div><div class="list-item-meta">'+esc(x.user)+' · '+esc(x.type||'未知')+'</div><div class="progress-line"><span style="width:'+Math.min(100,x.progress||0)+'%"></span></div></div><div class="list-item-side"><div class="list-item-meta" style="font-family:var(--mono);"><b style="color:var(--ink);">'+Math.round(x.progress||0)+'%</b></div><div class="list-item-meta">'+esc(x.position)+'/'+esc(x.duration)+'</div></div></div>').join('');
     }
@@ -1136,14 +1194,36 @@
       initCarousel('dlCarousel',items,PAGE_SIZE);
     }
 
-    function initSystemCarousel(){
+    function fmtUptime(sec){
+      const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
+      return h>0?(h+' 小时 '+m+' 分'):(m>0?(m+' 分钟'):'刚刚');
+    }
+
+    function buildSystemCarousel(){
       const items=[
-        '<div class="list-item"><div class="avatar c1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M5 12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2M5 12a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/></svg></div><div class="list-item-main"><div class="list-item-title">数据库连接</div><div class="list-item-meta">trimmedia.db</div></div><span class="tag" style="background:rgba(16,185,129,0.12); color:#34d399; border-color:rgba(16,185,129,0.2)">正常</span></div>',
-        '<div class="list-item"><div class="avatar c2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="list-item-main"><div class="list-item-title">API 服务</div><div class="list-item-meta">8 个端点</div></div><span class="tag" style="background:rgba(16,185,129,0.12); color:#34d399; border-color:rgba(16,185,129,0.2)">运行中</span></div>',
-        '<div class="list-item"><div class="avatar c3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="list-item-main"><div class="list-item-title">自动同步</div><div class="list-item-meta" id="syncStatus">每 30 秒</div></div><span class="tag">30s</span></div>',
-        '<div class="list-item"><div class="avatar c4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg></div><div class="list-item-main"><div class="list-item-title">数据刷新</div><div class="list-item-meta">实时更新中</div></div><span class="tag" style="background:rgba(34,211,238,0.12); color:#22d3ee; border-color:rgba(34,211,238,0.2)">活跃</span></div>'
+        '<div class="list-item"><div class="avatar c1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M5 12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2M5 12a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/></svg></div><div class="list-item-main"><div class="list-item-title">数据库连接</div><div class="list-item-meta" id="sysDbMeta">同步中…</div></div><span class="tag" id="sysDbTag" style="background:rgba(16,185,129,0.12); color:#34d399; border-color:rgba(16,185,129,0.2)">正常</span></div>',
+        '<div class="list-item"><div class="avatar c2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="list-item-main"><div class="list-item-title">数据同步</div><div class="list-item-meta" id="sysSyncMeta">—</div></div><span class="tag" id="sysSyncTag">—</span></div>',
+        '<div class="list-item"><div class="avatar c3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="list-item-main"><div class="list-item-title">运行时长</div><div class="list-item-meta" id="sysUptimeMeta">—</div></div><span class="tag" id="sysVerTag">{{ version }}</span></div>',
+        '<div class="list-item"><div class="avatar c4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="list-item-main"><div class="list-item-title">访客统计</div><div class="list-item-meta" id="sysVisitorMeta">累计播放 —</div></div><span class="tag" id="sysLogTag">—</span></div>'
       ];
       initCarousel('sysCarousel',items,PAGE_SIZE);
+    }
+
+    async function loadSystem(){
+      try{
+        const r=await fetch('/api/system');const d=await r.json();
+        const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+        set('sysDbMeta','trimmedia.db · '+(d.db_size||'—'));
+        const ago=d.db_last_sync?Math.max(0,Math.floor(Date.now()/1000-d.db_last_sync)):null;
+        set('sysSyncMeta',ago===null?'未同步':(ago<5?'刚刚同步':ago+' 秒前同步'));
+        const syncTag=document.getElementById('sysSyncTag');
+        if(syncTag){const ok=ago!==null&&ago<d.refresh_interval*3;syncTag.textContent=ok?'正常':'延迟';}
+        set('sysUptimeMeta',fmtUptime(d.uptime_sec||0));
+        set('sysVerTag',d.version||'');
+        set('sysVisitorMeta','累计播放 '+((d.total_plays||0).toLocaleString('zh-CN'))+' 次');
+        const logTag=document.getElementById('sysLogTag');
+        if(logTag){logTag.textContent=d.log_enabled?'已开启':'未开启';}
+      }catch(e){console.error('system:',e);}
     }
 
     async function loadLogs(nc){
@@ -1163,7 +1243,7 @@
       const btn=document.getElementById('refreshBtn');
       btn.querySelector('svg').classList.add('spin');
       try{
-        await Promise.all([loadStats(nc),loadCurrent(nc),loadHistory(nc),loadFavorites(nc),loadDownloads(nc),loadLogs(nc),loadLocations(nc)]);
+        await Promise.all([loadStats(nc),loadCurrent(nc),loadHistory(nc),loadFavorites(nc),loadDownloads(nc),loadLogs(nc),loadLocations(nc),loadSystem()]);
       }catch(e){console.error(e);}finally{setTimeout(()=>btn.querySelector('svg').classList.remove('spin'),400);}
     }
 
@@ -1175,10 +1255,12 @@
       const logo=document.querySelector('.brand-logo-img');
       if(logo){logo.src=t==='light'?'{{ url_for("static", filename="logo-light.png") }}':'{{ url_for("static", filename="logo.png") }}';}
       syncMapTheme();
-      if(refreshAll._loaded){await refreshAll(false);}
+      // 图表配色在创建时固化，主题切换后销毁重建以应用新配色
+      destroyCharts();
+      await refreshAll(false);
     }
 
-    function tickClock(){const n=new Date();document.getElementById('clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+    function tickClock(){const n=new Date();document.getElementById('clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');}
 
     function setupReveal(){
       const obs=new IntersectionObserver((es)=>{es.forEach((e,i)=>{if(e.isIntersecting){setTimeout(()=>e.target.classList.add('in'),i*60);obs.unobserve(e.target);}});},{threshold:0.05});
@@ -1193,10 +1275,16 @@
       const initLogo=document.querySelector('.brand-logo-img');
       if(initLogo){initLogo.src=saved==='light'?'{{ url_for("static", filename="logo-light.png") }}':'{{ url_for("static", filename="logo.png") }}';}
       document.getElementById('themeToggle').onclick=()=>{const cur=document.body.getAttribute('data-theme');const nx=cur==='light'?'dark':'light';applyTheme(nx);localStorage.setItem('fnmedia_theme',nx);};
-      tickClock();setInterval(tickClock,10000);
+      // 移动端抽屉导航
+      const sidebar=document.querySelector('.sidebar');
+      const scrim=document.getElementById('scrim');
+      const closeSidebar=()=>{sidebar.classList.remove('open');scrim.classList.remove('show');};
+      document.getElementById('menuBtn').onclick=()=>{sidebar.classList.toggle('open');scrim.classList.toggle('show');};
+      scrim.onclick=closeSidebar;
+      tickClock();setInterval(tickClock,1000);
       setupReveal();
       document.getElementById('refreshBtn').onclick=()=>refreshAll(true);
-      initSystemCarousel();
+      buildSystemCarousel();
       // Sidebar navigation: smooth scroll + active state
       document.querySelectorAll('.nav-item').forEach(item=>{
         item.addEventListener('click',e=>{
@@ -1207,6 +1295,7 @@
             target.scrollIntoView({behavior:'smooth',block:'start'});
             document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
             item.classList.add('active');
+            closeSidebar();
           }
         });
       });
@@ -1223,7 +1312,7 @@
       },{rootMargin:'-20% 0px -70% 0px'});
       sections.forEach(id=>{const el=document.getElementById(id);if(el)spyObs.observe(el);});
       refreshAll(true).then(()=>{refreshAll._loaded=true;});
-      setInterval(()=>refreshAll(false),30000);
+      setInterval(()=>refreshAll(false),{{ refresh_interval * 1000 }});
     });
   </script>
 </body>

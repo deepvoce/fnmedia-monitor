@@ -42,3 +42,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Sync Docker Hub overview (更新日志)
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: deepvoce/fnmedia-monitor
+          readme-filepath: ./DOCKERHUB_README.md
+          short-description: 轻量级飞牛影视观看监控面板 — 实时观看状态 / 播放统计 / 访客日志与地图

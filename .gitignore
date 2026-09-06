@@ -9,3 +9,7 @@ tmp/
 *.log
 .DS_Store
 Thumbs.db
+# AI 配置文件（包含 API Key）
+ai_config.py
+# 本地预览/测试脚手架
+dev/

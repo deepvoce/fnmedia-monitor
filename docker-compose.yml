@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   fnmedia-monitor:
-    image: deepvoce/fnmedia-monitor:v2.0
+    image: deepvoce/fnmedia-monitor:latest
     container_name: fnmedia-monitor
     restart: unless-stopped
     ports:

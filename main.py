@@ -11,6 +11,9 @@ import requests
 from flask import Flask, render_template, jsonify, request
 from config import Config
 
+APP_VERSION = "v2.1"
+_START_TIME = time.time()
+
 
 # ========== 缓存层 ==========
 _log_cache = {"data": None, "time": 0, "lock": threading.Lock()}
@@ -37,6 +40,22 @@ def _atomic_copy_database():
     if not os.access(SRC_DB_PATH, os.R_OK):
         print(f"Source DB not readable: {SRC_DB_PATH}")
         return False
+    try:
+        # 优先用 SQLite backup API：对 WAL 模式下的热库也能拿到一致快照，
+        # 直接 copy 文件可能复制到半写入状态
+        src = sqlite3.connect(f"file:{SRC_DB_PATH}?mode=ro", uri=True)
+        dst = sqlite3.connect(atomic_tmp_path)
+        try:
+            with dst:
+                src.backup(dst)
+        finally:
+            src.close()
+            dst.close()
+        os.replace(atomic_tmp_path, TMP_DB_PATH)
+        _last_copy_time = time.time()
+        return True
+    except Exception as e:
+        print(f"SQLite backup failed, fallback to file copy: {e}")
     try:
         shutil.copy2(SRC_DB_PATH, atomic_tmp_path)
         os.replace(atomic_tmp_path, TMP_DB_PATH)
@@ -212,6 +231,30 @@ def parse_log_time(time_str):
         except Exception:
             continue
     return time_str
+
+
+# 访客日志里跳过静态资源请求，只保留有分析价值的页面/API 访问
+def _is_noise_path(path):
+    p = path or ""
+    return p.startswith("/static/") or p == "/favicon.ico"
+
+
+def tail_lines(filepath, max_bytes=256 * 1024):
+    """只读取文件末尾 max_bytes 字节并按行返回，避免大日志文件整读进内存"""
+    try:
+        size = os.path.getsize(filepath)
+        with open(filepath, "rb") as f:
+            if size > max_bytes:
+                f.seek(-max_bytes, os.SEEK_END)
+            data = f.read()
+        lines = data.decode("utf-8", errors="ignore").splitlines()
+        # 首行可能被截断，丢弃
+        if size > max_bytes and lines:
+            lines = lines[1:]
+        return lines
+    except Exception as e:
+        print(f"Log tail read error: {e}")
+        return []
 
 
 # ========== 批量层级查询（替代逐条递归） ==========
@@ -503,16 +546,93 @@ def get_stats():
         stats['top_users'] = [{"user": r['username'], "count": r['count']} for r in cursor.fetchall()]
         
         cursor.execute("""
-            SELECT i.title, COUNT(*) as count 
+            SELECT i.guid, i.title, i.type, COUNT(*) as count
             FROM item_user_play p
             JOIN item i ON p.item_guid = i.guid
             WHERE p.visible = 1 AND p.update_time >= ?
-            GROUP BY i.title
+            GROUP BY i.guid
             ORDER BY count DESC
             LIMIT 10
         """, (now_ms() - 7 * 24 * 3600 * 1000,))
-        stats['top_content'] = [{"title": r['title'], "count": r['count']} for r in cursor.fetchall()]
-        
+        # 剧集按 guid 分组后，用剧集名作前缀，避免不同剧的同名集（如"第1集"）被合并
+        top_rows = cursor.fetchall()
+        hierarchy_map = get_items_hierarchy_batch(
+            conn, [r['guid'] for r in top_rows]) if top_rows else {}
+        top_content = []
+        for r in top_rows:
+            title = r['title']
+            hierarchy = hierarchy_map.get(r['guid'], [])
+            if hierarchy and len(hierarchy) > 1:
+                root = hierarchy[-1]['title']
+                if root and root != title:
+                    title = f"{root} · {title}"
+            top_content.append({"title": title, "count": r['count']})
+        stats['top_content'] = top_content
+
+        # 播放时长分布（近7天，按单次观看秒数分桶）
+        week_ago = now_ms() - 7 * 24 * 3600 * 1000
+        cursor.execute("""
+            SELECT
+                SUM(CASE WHEN watched < 1800 THEN 1 ELSE 0 END) as b0,
+                SUM(CASE WHEN watched >= 1800 AND watched < 3600 THEN 1 ELSE 0 END) as b1,
+                SUM(CASE WHEN watched >= 3600 AND watched < 7200 THEN 1 ELSE 0 END) as b2,
+                SUM(CASE WHEN watched >= 7200 AND watched < 14400 THEN 1 ELSE 0 END) as b3,
+                SUM(CASE WHEN watched >= 14400 THEN 1 ELSE 0 END) as b4
+            FROM item_user_play
+            WHERE visible = 1 AND update_time >= ?
+        """, (week_ago,))
+        row = cursor.fetchone()
+        stats['duration_distribution'] = [
+            {"label": "<30m", "value": row['b0'] or 0},
+            {"label": "30-60m", "value": row['b1'] or 0},
+            {"label": "1-2h", "value": row['b2'] or 0},
+            {"label": "2-4h", "value": row['b3'] or 0},
+            {"label": ">4h", "value": row['b4'] or 0},
+        ]
+
+        # 近7天逐日趋势（播放次数 / 活跃用户 / 观看小时），供统计卡 sparkline 使用
+        cursor.execute("""
+            SELECT
+                date(update_time / 1000, 'unixepoch', 'localtime') AS day,
+                COUNT(*) as plays,
+                COUNT(DISTINCT user_guid) as active,
+                SUM(watched) as watch_sec
+            FROM item_user_play
+            WHERE visible = 1 AND update_time >= ?
+            GROUP BY day
+        """, (now_ms() - 7 * 24 * 3600 * 1000,))
+        by_day = {r['day']: r for r in cursor.fetchall()}
+        today_start_sec = int(datetime.now().replace(hour=0, minute=0, second=0,
+                                                     microsecond=0).timestamp())
+        trend = []
+        for d in range(6, -1, -1):
+            day_str = datetime.fromtimestamp(today_start_sec - d * 86400).strftime("%Y-%m-%d")
+            rec = by_day.get(day_str)
+            trend.append({
+                "plays": rec['plays'] if rec else 0,
+                "active": rec['active'] if rec else 0,
+                "hours": round((rec['watch_sec'] or 0) / 3600, 1) if rec else 0,
+            })
+        stats['daily_trend'] = trend
+
+        # 近7天累计用户数趋势（供"总用户"卡片 sparkline）
+        cursor.execute("""
+            SELECT date(create_time / 1000, 'unixepoch', 'localtime') AS day, COUNT(*) as c
+            FROM user
+            WHERE create_time IS NOT NULL
+            GROUP BY day
+        """)
+        created_by_day = {r['day']: r['c'] for r in cursor.fetchall()}
+        base = stats['total_users'] - sum(
+            c for day, c in created_by_day.items()
+            if day and day >= datetime.fromtimestamp(today_start_sec - 6 * 86400).strftime("%Y-%m-%d"))
+        users_trend = []
+        for d in range(6, -1, -1):
+            day_str = datetime.fromtimestamp(today_start_sec - d * 86400).strftime("%Y-%m-%d")
+            base += created_by_day.get(day_str, 0)
+            users_trend.append(max(0, base))
+        stats['users_trend'] = users_trend
+
     except Exception as e:
         print(f"Stats error: {e}")
     
@@ -529,11 +649,11 @@ def get_hourly_stats():
     conn = get_db_connection()
     if not conn:
         return []
-    
+
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT 
-            strftime('%H', datetime(create_time / 1000, 'unixepoch')) as hour,
+        SELECT
+            strftime('%H', datetime(create_time / 1000, 'unixepoch', 'localtime')) as hour,
             COUNT(*) as count
         FROM item_user_play
         WHERE visible = 1 AND update_time >= ?
@@ -593,7 +713,22 @@ def format_size(bytes_val):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', version=APP_VERSION,
+                           refresh_interval=config.REFRESH_INTERVAL)
+
+@app.route('/api/system')
+def api_system():
+    """系统状态（供前端"系统状态"卡片展示真实数据）"""
+    db_size = os.path.getsize(TMP_DB_PATH) if os.path.exists(TMP_DB_PATH) else 0
+    return jsonify({
+        "version": APP_VERSION,
+        "db_size": format_size(db_size),
+        "db_last_sync": int(_last_copy_time),
+        "uptime_sec": int(time.time() - _START_TIME),
+        "log_enabled": config.LOG_ENABLED,
+        "refresh_interval": config.REFRESH_INTERVAL,
+        "total_plays": get_stats().get('total_plays', 0),
+    })
 
 @app.route('/api/stats')
 def api_stats():
@@ -624,8 +759,8 @@ def api_heatmap():
     cursor = conn.cursor()
     cursor.execute("""
         SELECT
-            CAST(strftime('%w', datetime(create_time / 1000, 'unixepoch')) AS INTEGER) as dow,
-            CAST(strftime('%H', datetime(create_time / 1000, 'unixepoch')) AS INTEGER) as hour,
+            CAST(strftime('%w', datetime(create_time / 1000, 'unixepoch', 'localtime')) AS INTEGER) as dow,
+            CAST(strftime('%H', datetime(create_time / 1000, 'unixepoch', 'localtime')) AS INTEGER) as hour,
             COUNT(*) as count
         FROM item_user_play
         WHERE visible = 1 AND update_time >= ?
@@ -675,32 +810,31 @@ def api_logs():
             if filename.endswith('.log'):
                 filepath = os.path.join(log_dir, filename)
                 try:
-                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                        lines = f.readlines()[-200:]
-                        last_ts = ""
-                        for line in lines:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            if re.match(r'^\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2}$', line):
-                                last_ts = line.replace("/", "-")
-                                continue
-                            parsed = parse_nginx_log(line)
-                            if parsed:
-                                ip_info = get_ip_info(parsed['ip'])
-                                ua_info = parse_user_agent(parsed['ua'])
-                                logs.append({
-                                    "ip": parsed['ip'],
-                                    "country": ip_info.get('country', ''),
-                                    "region": ip_info.get('region', ''),
-                                    "city": ip_info.get('city', ''),
-                                    "isp": ip_info.get('isp', ''),
-                                    "device": ua_info.get('device', ''),
-                                    "browser": ua_info.get('browser', ''),
-                                    "os": ua_info.get('os', ''),
-                                    "path": parsed['path'],
-                                    "time": parse_log_time(parsed.get("time")) or last_ts
-                                })
+                    lines = tail_lines(filepath)[-200:]
+                    last_ts = ""
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        if re.match(r'^\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2}$', line):
+                            last_ts = line.replace("/", "-")
+                            continue
+                        parsed = parse_nginx_log(line)
+                        if parsed and not _is_noise_path(parsed['path']):
+                            ip_info = get_ip_info(parsed['ip'])
+                            ua_info = parse_user_agent(parsed['ua'])
+                            logs.append({
+                                "ip": parsed['ip'],
+                                "country": ip_info.get('country', ''),
+                                "region": ip_info.get('region', ''),
+                                "city": ip_info.get('city', ''),
+                                "isp": ip_info.get('isp', ''),
+                                "device": ua_info.get('device', ''),
+                                "browser": ua_info.get('browser', ''),
+                                "os": ua_info.get('os', ''),
+                                "path": parsed['path'],
+                                "time": parse_log_time(parsed.get("time")) or last_ts
+                            })
                 except Exception as e:
                     print(f"Log read error: {e}")
     
@@ -733,19 +867,18 @@ def api_locations():
             if filename.endswith('.log'):
                 filepath = os.path.join(log_dir, filename)
                 try:
-                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                        lines = f.readlines()[-500:]
-                        last_ts = ""
-                        for line in lines:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            if re.match(r'^\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2}$', line):
-                                last_ts = line.replace("/", "-")
-                                continue
-                            parsed = parse_nginx_log(line)
-                            if parsed:
-                                logs.append(parsed)
+                    lines = tail_lines(filepath)[-500:]
+                    last_ts = ""
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        if re.match(r'^\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2}$', line):
+                            last_ts = line.replace("/", "-")
+                            continue
+                        parsed = parse_nginx_log(line)
+                        if parsed and not _is_noise_path(parsed['path']):
+                            logs.append(parsed)
                 except Exception as e:
                     print(f"Log read error: {e}")
 

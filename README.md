@@ -52,7 +52,7 @@ sudo docker run -d \
   -v /vol3/1000/docker/fnmedia-monitor/logs:/app/logs \
   --memory=200m \
   --cpus=0.5 \
-  deepvoce/fnmedia-monitor:v2.0
+  deepvoce/fnmedia-monitor:latest
 ```
 
 ### 4. 访问监控面板
@@ -147,10 +147,11 @@ fnmedia-monitor/
 ├── README.md            # 部署说明
 ├── templates/
 │   └── index.html       # 前端页面
+├── static/              # 本地静态资源（logo、字体、Chart.js/Leaflet）
 ├── logs/                # 访问日志目录（需反向代理写入）
 │   └── access.log
 └── database/
-    └── fnmedia.db       # 飞牛影视数据库
+    └── trimmedia.db     # 飞牛影视数据库
 ```
 
 ## 常见问题

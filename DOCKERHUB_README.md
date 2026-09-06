@@ -2,14 +2,46 @@
 
 一个轻量级的飞牛影视观看监控面板，支持实时观看状态、历史记录、访问日志分析。
 
-<img src="https://raw.githubusercontent.com/deepvoce/fnmedia-monitor/master/assets/preview-light.jpeg" width="904" alt="浅色模式预览"><br>
-<img src="https://raw.githubusercontent.com/deepvoce/fnmedia-monitor/master/assets/preview-dark.jpeg" width="904" alt="深色模式预览">
+<img src="https://iili.io/C1mFyIn.png" width="904" alt="浅色模式预览"><br>
+<img src="https://iili.io/C1mKK22.png" width="904" alt="深色模式预览">
 
-基于 Flask 的轻量级媒体库监控服务，实时展示飞牛影视数据库中的媒体信息、下载进度和存储统计。
+基于 Flask 的轻量级媒体库监控服务，实时展示飞牛影视数据库中的媒体信息、播放状态和访客统计。前端资源（Chart.js / Leaflet / 字体）全部本地化，部署无需访问外网。
 
 ---
 
 ## 📦 更新日志
+
+### v2.1 (2026-09-07) 🐛 正确性修复 + ⚡ 性能优化
+
+> 修复几处长期数据错误，全面本地化前端资源，国内 NAS 无外网也能秒开
+
+**数据修复**
+
+- **时区修复** — 播放时段趋势与周活动热力图此前按 UTC 分桶，整体偏移 8 小时，现按本地时区统计
+- **播放时长分布改为真实数据** — 旧版图表数值有误，现按单次观看秒数真实分桶（<30m / 30-60m / 1-2h / 2-4h / >4h）
+- **热门内容按条目聚合** — 不同剧集的同名集（如"第1集"）不再被错误合并，剧集显示"剧名 · 集名"
+- **访客地图修复** — 更换地图瓦片源，解决原瓦片服务要求 API Key 导致地图无法显示的问题
+
+**性能与体验**
+
+- **完全离线可用** — Chart.js / Leaflet / 字体全部内置，移除 Google Fonts 与公共 CDN 外链
+- **大日志不再卡顿** — 访问日志只读末尾 256KB
+- **图表原地更新** — 30 秒轮询不再重建图表，无闪烁
+- **gunicorn 单 worker 多线程** — 缓存真正生效，外部 IP 查询量减半，内存占用更低
+- **统计卡趋势图真实化** — 四张小图分别显示近 7 天累计用户 / 活跃 / 播放 / 时长
+- **系统状态卡真实数据** — 数据库大小、同步时间、运行时长、累计播放
+- **移动端适配** — 新增抽屉式导航菜单（原小屏下无法打开导航）
+- **访客日志降噪** — 自动过滤静态资源请求
+
+### v2.0 (2026-07-11) 🎨 Bento Dashboard 重设计
+
+> 全面视觉焕新，玻璃拟态 + 渐变光晕风格
+
+- **Bento 网格布局** — 模块化卡片错落排列，视觉层次丰富
+- **渐变光晕背景** — 紫/青/粉三色 aurora 流动光晕
+- **新增模块** — 内容类型环形图、用户排行榜（金银铜徽章）、访客日志表、IP 地理位置地图
+- **丰富动效** — 错落入场、数字计数、骨架屏、滚动揭示，支持 prefers-reduced-motion
+- **深浅双主题** — 深色/浅色完整适配，LOGO 随主题自动切换
 
 ### v1.1 (2026-04-01) ⚡ 性能优化版
 
@@ -104,6 +136,10 @@ services:
 | `CACHE_TTL` | `30` | API 响应缓存时间（秒） |
 | `DB_COPY_TTL` | `60` | 数据库副本刷新间隔（秒） |
 | `PORT` | `5000` | Web 服务端口 |
+| `IPINFO_TOKEN` | - | ipinfo.io Token（可选，更精准的 IP 归属地查询） |
+| `TZ` | - | 建议设置为 `Asia/Shanghai`，时段统计按本地时区分桶 |
+
+> ⚠️ **升级到 v2.1 提示**：请设置 `TZ=Asia/Shanghai`（或你的本地时区），播放时段与热力图将按该时区统计。
 
 ### 飞牛影视数据库路径
 
@@ -124,6 +160,7 @@ services:
 ├── config.py            # 配置管理
 ├── templates/
 │   └── index.html       # 前端页面
+├── static/              # 本地静态资源（logo、字体、Chart.js/Leaflet）
 ├── Dockerfile           # Docker 构建文件
 ├── docker-compose.yml   # Docker Compose 配置
 └── requirements.txt     # Python 依赖
