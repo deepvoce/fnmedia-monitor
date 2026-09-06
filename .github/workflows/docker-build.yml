@@ -28,7 +28,6 @@ jobs:
         with:
           images: deepvoce/fnmedia-monitor
           tags: |
-            type=ref,event=branch
             type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
