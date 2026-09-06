@@ -1,0 +1,22 @@
+name: Docker Hub stats
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query repository stats
+        run: |
+          curl -s "https://hub.docker.com/v2/repositories/deepvoce/fnmedia-monitor/" > hub.json
+          python3 - <<'EOF'
+          import json
+          d = json.load(open("hub.json"))
+          print("PULL_COUNT:", d.get("pull_count"))
+          print("STAR_COUNT:", d.get("star_count"))
+          print("LAST_UPDATED:", d.get("last_updated"))
+          tags = json.load(__import__("urllib.request", fromlist=["urlopen"]).urlopen(
+              "https://hub.docker.com/v2/repositories/deepvoce/fnmedia-monitor/tags?page_size=25"))
+          print("TAGS:", ", ".join(f"{t['name']}({t['last_updated'][:10]})" for t in tags.get("results", [])))
+          EOF
